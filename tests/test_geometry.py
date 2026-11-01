@@ -1,4 +1,4 @@
-"""Tests for ttcv.geometry (table dimensions, corner detection, homography, and visualizers)."""
+"""Тесты для ttcv.geometry (размеры стола, детекция углов, гомография и визуализаторы)."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ from ttcv.geometry.visualizer import (
 SAMPLE_MASK_PATH = Path("data/raw/segmentation_masks/1278.png")
 
 
-# ── Table Specifications ──────────────────────────────────────────────────────
+# ── Спецификации стола ────────────────────────────────────────────────────────
 
 
 class TestTableDimensions:
@@ -58,7 +58,7 @@ class TestTableDimensions:
         corners = TableDimensions.canonical_corners_mm()
         assert corners.shape == (4, 2)
         assert corners.dtype == np.float32
-        # Check coordinates in mm
+        # Проверка координат в мм
         np.testing.assert_array_equal(corners[0], [0.0, 0.0])
         np.testing.assert_array_equal(corners[1], [2740.0, 0.0])
         np.testing.assert_array_equal(corners[2], [2740.0, 1525.0])
@@ -78,7 +78,7 @@ class TestTableDimensions:
         assert end[1] == 1525.0 + 152.5
 
 
-# ── TablePoint Classification ─────────────────────────────────────────────────
+# ── Классификация TablePoint ─────────────────────────────────────────────────
 
 
 class TestTablePoint:
@@ -113,7 +113,7 @@ class TestTablePoint:
         assert right_pt.lateral_zone == LateralZone.RIGHT
 
     def test_depth_zones(self):
-        # Baseline is X=0 for Player A: deep is < 456.7 mm, short is near net (> 913.3 mm)
+        # Задняя линия X=0 для Игрока A: глубокая < 456.7 мм, короткая у сетки (> 913.3 мм)
         deep_a = TablePoint(x_mm=200.0, y_mm=500.0)
         med_a = TablePoint(x_mm=600.0, y_mm=500.0)
         short_a = TablePoint(x_mm=1200.0, y_mm=500.0)
@@ -126,7 +126,7 @@ class TestTablePoint:
         assert pt.zone_name == "player_a_deep_left"
 
 
-# ── Corner Ordering ───────────────────────────────────────────────────────────
+# ── Упорядочивание углов ──────────────────────────────────────────────────────
 
 
 class TestOrderQuadrilateralPoints:
@@ -142,7 +142,7 @@ class TestOrderQuadrilateralPoints:
         np.testing.assert_array_equal(ordered, expected)
 
     def test_perspective_trapezoid(self):
-        # Mask points: Far edge (smaller y) narrower than near edge (larger y)
+        # Точки маски: дальний край (меньший y) уже, чем ближний (больший y)
         pts = np.array([[66, 93], [236, 92], [210, 72], [88, 72]], dtype=np.float32)
         ordered = order_quadrilateral_points(pts)
         assert ordered[0, 1] <= ordered[2, 1]  # TL y <= BR y
@@ -151,7 +151,7 @@ class TestOrderQuadrilateralPoints:
         assert ordered[3, 0] < ordered[2, 0]   # BL x < BR x
 
 
-# ── Corner Detection ──────────────────────────────────────────────────────────
+# ── Детекция углов ───────────────────────────────────────────────────────────
 
 
 class TestDetectTableCorners:
@@ -162,21 +162,21 @@ class TestDetectTableCorners:
         assert corners.corners_camera.shape == (4, 2)
         assert corners.target_size == (1920, 1080)
         assert corners.mask_size == (320, 128)
-        # Check expected corners in 1920x1080
+        # Проверка ожидаемых углов в 1920x1080
         assert 500 < corners.top_left[0] < 550
         assert 1200 < corners.top_right[0] < 1300
         assert 1350 < corners.bottom_right[0] < 1450
         assert 350 < corners.bottom_left[0] < 450
 
     def test_detect_from_synthetic_binary_mask(self):
-        # Create a 200x200 binary image with a trapezoid table
+        # Создаем бинарное изображение 200x200 со столом-трапецией
         mask = np.zeros((200, 200), dtype=np.uint8)
         poly = np.array([[40, 120], [160, 120], [140, 60], [60, 60]], dtype=np.int32)
         cv2.fillPoly(mask, [poly], 255)
 
         corners = detect_table_corners_from_mask(mask, target_resolution=(1000, 1000))
         assert corners.corners_camera.shape == (4, 2)
-        # Scaled by 5x (1000 / 200)
+        # Масштабировано в 5 раз (1000 / 200)
         assert corners.corners_camera[0, 0] == pytest.approx(300, abs=15)
         assert corners.corners_camera[0, 1] == pytest.approx(300, abs=15)
 
@@ -190,7 +190,7 @@ class TestDetectTableCorners:
             detect_table_corners_from_mask(empty_mask)
 
 
-# ── Homography & Projections ──────────────────────────────────────────────────
+# ── Гомография и проекции ─────────────────────────────────────────────────────
 
 
 class TestTableHomography:
@@ -198,7 +198,7 @@ class TestTableHomography:
     def homography(self) -> TableHomography:
         if SAMPLE_MASK_PATH.exists():
             return TableHomography.from_mask(SAMPLE_MASK_PATH)
-        # Synthetic corners
+        # Синтетические углы
         corners = np.array([[528, 607.5], [1260, 607.5], [1416, 776.25], [396, 784.7]], dtype=np.float32)
         return TableHomography(corners)
 
@@ -206,7 +206,7 @@ class TestTableHomography:
         corners_cam = homography.corners.corners_camera
         pts_table = homography.project_to_table(corners_cam)
 
-        # Corners should map to (0,0), (2740,0), (2740,1525), (0,1525)
+        # Углы должны проецироваться в (0,0), (2740,0), (2740,1525), (0,1525)
         expected = TableDimensions.canonical_corners_mm()
         np.testing.assert_allclose(pts_table, expected, atol=1e-2)
 
@@ -240,7 +240,7 @@ class TestTableHomography:
         assert warped.shape == (homography.bev_size[1], homography.bev_size[0], 3)
 
     def test_classify_camera_point(self, homography: TableHomography):
-        # Point on Player A half, right lateral zone
+        # Точка на половине Игрока A, правая боковая зона
         pt_table_mm = np.array([[500.0, 1000.0]], dtype=np.float32)
         pt_cam = homography.project_table_to_camera(pt_table_mm)[0]
 
@@ -250,7 +250,7 @@ class TestTableHomography:
         assert tp.lateral_zone == LateralZone.RIGHT
 
 
-# ── Visualizations ────────────────────────────────────────────────────────────
+# ── Визуализации ─────────────────────────────────────────────────────────────
 
 
 class TestVisualizers:
@@ -267,7 +267,7 @@ class TestVisualizers:
         assert img.dtype == np.uint8
 
     def test_plot_bev_heatmap(self, homography: TableHomography):
-        # Generate some synthetic bounce points in camera space
+        # Синтетические точки отскока в пространстве камеры
         pts_mm = np.array([[500, 700], [800, 500], [2000, 800], [2200, 600]], dtype=np.float32)
         pts_cam = homography.project_table_to_camera(pts_mm)
 

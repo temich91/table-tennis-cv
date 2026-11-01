@@ -1,4 +1,4 @@
-"""Match and rally report generator."""
+"""Генератор отчетов о матче и розыгрышах."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from ttcv.analytics.metrics import RallyMetrics
 
 
 def format_markdown_report(metrics: RallyMetrics, title: str = "PingPongVision Match Report") -> str:
-    """Format RallyMetrics into a clean Markdown match report."""
+    """Форматирование RallyMetrics в структурированный Markdown-отчет о матче."""
     d = metrics.summary_dict()
 
     md = f"""# 🏓 {title}
 
-## 📊 Executive Summary
+## 📊 Executive Summary / Сводка
 
-| Metric | Value |
+| Metric / Метрика | Value / Значение |
 |---|---|
 | **Rally Duration** | `{d['duration_sec']} s` ({d['total_frames']} frames @ {d['fps']} FPS) |
 | **Total Strokes / Shots** | `{d['total_shots']}` |
@@ -55,7 +55,7 @@ def format_markdown_report(metrics: RallyMetrics, title: str = "PingPongVision M
 
 
 def save_report_json(metrics: RallyMetrics, path: str | Path) -> None:
-    """Save full metrics to a JSON file."""
+    """Сохранение полных метрик в файл формата JSON."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(metrics.summary_dict(), indent=2), encoding="utf-8")

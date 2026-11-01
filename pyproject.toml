@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "table-tennis-cv"
 version = "0.1.0"
-description = "PingPongVision: Ball Tracking & Table Bounce Analytics"
+description = "PingPongVision: отслеживание мяча и аналитика отскоков в настольном теннисе"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

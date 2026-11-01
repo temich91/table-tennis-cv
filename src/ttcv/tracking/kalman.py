@@ -1,14 +1,14 @@
-"""Kalman Filter for table tennis ball tracking.
+"""Фильтр Калмана для отслеживания мяча в настольном теннисе.
 
-Uses a 6-state constant acceleration (CA) kinematic model:
-    State X = [x, y, v_x, v_y, a_x, a_y]^T
-    Measurements Z = [x, y]^T
+Использует 6-параметрическую кинематическую модель постоянного ускорения (CA):
+    Вектор состояния X = [x, y, v_x, v_y, a_x, a_y]^T
+    Вектор измерений Z = [x, y]^T
 
-Physics:
-  - Supports non-uniform or unit time steps (dt = 1.0 frame).
-  - Acceleration modeling accounts for gravity in vertical axis (+Y downwards).
-  - Handles missing measurements (occlusion / motion blur) via prediction-only steps.
-  - Innovation residual allows bounce / collision event detection.
+Физика:
+  - Поддерживает неравномерные или единичные шаги по времени (dt = 1.0 кадр).
+  - Моделирование ускорения учитывает гравитацию по вертикальной оси (+Y направлена вниз).
+  - Обрабатывает пропуски измерений (перекрытия / размытие в движении) через шаги только предсказания.
+  - Невязка измерений (инновация) позволяет определять события отскоков и ударов.
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ import numpy as np
 
 
 class BallKalmanFilter:
-    """Kalman Filter tuned for fast-moving table tennis ball dynamics.
+    """Фильтр Калмана, настроенный под динамику быстро движущегося теннисного мяча.
 
-    State vector (6x1):
+    Вектор состояния (6x1):
         [x, y, v_x, v_y, a_x, a_y]
-        where x, y are pixel positions, v_x, v_y are velocities (px/frame),
-        and a_x, a_y are accelerations (px/frame^2).
+        где x, y — координаты в пикселях, v_x, v_y — скорости (пикс/кадр),
+        а a_x, a_y — ускорения (пикс/кадр^2).
     """
 
     def __init__(
@@ -33,19 +33,19 @@ class BallKalmanFilter:
         process_noise_acc: float = 5.0,
         measurement_noise: float = 4.0,
     ) -> None:
-        """Initialize the Kalman filter matrices.
+        """Инициализация матриц фильтра Калмана.
 
-        Args:
-            dt: Time step (typically 1.0 frame).
-            process_noise_pos: Process noise variance for position.
-            process_noise_vel: Process noise variance for velocity.
-            process_noise_acc: Process noise variance for acceleration.
-            measurement_noise: Measurement noise variance for [x, y] detections.
+        Аргументы:
+            dt: Шаг по времени (обычно 1.0 кадр).
+            process_noise_pos: Дисперсия шума процесса для положения.
+            process_noise_vel: Дисперсия шума процесса для скорости.
+            process_noise_acc: Дисперсия шума процесса для ускорения.
+            measurement_noise: Дисперсия шума измерений для детекций [x, y].
         """
         self.dt = dt
         self.initialized = False
 
-        # State transition matrix F (6x6)
+        # Матрица перехода состояния F (6x6)
         # x_k = x_{k-1} + v*dt + 0.5*a*dt^2
         # v_k = v_{k-1} + a*dt
         # a_k = a_{k-1}
@@ -61,7 +61,7 @@ class BallKalmanFilter:
             dtype=np.float32,
         )
 
-        # Measurement matrix H (2x6): we observe [x, y]
+        # Матрица измерений H (2x6): наблюдаем [x, y]
         self.H = np.array(
             [
                 [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -70,7 +70,7 @@ class BallKalmanFilter:
             dtype=np.float32,
         )
 
-        # Process noise covariance Q (6x6)
+        # Ковариация шума процесса Q (6x6)
         self.Q = np.diag(
             [
                 process_noise_pos,
@@ -82,18 +82,18 @@ class BallKalmanFilter:
             ]
         ).astype(np.float32)
 
-        # Measurement noise covariance R (2x2)
+        # Ковариация шума измерений R (2x2)
         self.R = np.eye(2, dtype=np.float32) * measurement_noise
 
-        # State estimate vector x (6x1) and covariance P (6x6)
+        # Вектор оценки состояния x (6x1) и ковариация ошибки P (6x6)
         self.x = np.zeros((6, 1), dtype=np.float32)
         self.P = np.eye(6, dtype=np.float32) * 100.0
 
-        # Last innovation residual for bounce detection
+        # Последняя невязка инновации для детекции отскоков
         self.last_residual: np.ndarray = np.zeros((2, 1), dtype=np.float32)
 
     def reset(self, initial_xy: tuple[float, float] | None = None) -> None:
-        """Reset the Kalman filter to uninitialized or specified initial position."""
+        """Сброс фильтра Калмана в неинициализированное или заданное начальное положение."""
         self.x = np.zeros((6, 1), dtype=np.float32)
         self.P = np.eye(6, dtype=np.float32) * 100.0
         self.last_residual = np.zeros((2, 1), dtype=np.float32)
@@ -105,23 +105,23 @@ class BallKalmanFilter:
             self.initialized = False
 
     def predict(self) -> tuple[float, float]:
-        """Execute Kalman prediction step (a priori estimate).
+        """Выполнение шага предсказания Калмана (априорная оценка).
 
-        Returns:
-            (x_pred, y_pred): predicted 2D position.
+        Возвращает:
+            (x_pred, y_pred): предсказанное 2D-положение.
         """
         self.x = self.F @ self.x
         self.P = self.F @ self.P @ self.F.T + self.Q
         return (float(self.x[0, 0]), float(self.x[1, 0]))
 
     def update(self, measurement_xy: tuple[float, float]) -> tuple[float, float]:
-        """Execute Kalman measurement update step (a posteriori estimate).
+        """Выполнение шага коррекции по измерениям Калмана (апостериорная оценка).
 
-        Args:
-            measurement_xy: Detected (x, y) coordinates in pixels.
+        Аргументы:
+            measurement_xy: Обнаруженные координаты (x, y) в пикселях.
 
-        Returns:
-            (x_est, y_est): updated 2D state position.
+        Возвращает:
+            (x_est, y_est): скорректированное 2D-положение состояния.
         """
         z = np.array([[measurement_xy[0]], [measurement_xy[1]]], dtype=np.float32)
 
@@ -131,44 +131,44 @@ class BallKalmanFilter:
             self.initialized = True
             return (float(self.x[0, 0]), float(self.x[1, 0]))
 
-        # Innovation residual: y = z - H * x_pred
+        # Невязка инновации: y = z - H * x_pred
         y = z - self.H @ self.x
         self.last_residual = y
 
-        # Innovation covariance: S = H * P * H^T + R
+        # Ковариация инновации: S = H * P * H^T + R
         S = self.H @ self.P @ self.H.T + self.R
 
-        # Kalman gain: K = P * H^T * S^{-1}
+        # Коэффициент Калмана (Kalman gain): K = P * H^T * S^{-1}
         K = self.P @ self.H.T @ np.linalg.inv(S)
 
-        # State update: x = x_pred + K * y
+        # Обновление состояния: x = x_pred + K * y
         self.x = self.x + K @ y
 
-        # Covariance update: P = (I - K * H) * P
+        # Обновление ковариации: P = (I - K * H) * P
         I = np.eye(6, dtype=np.float32)
         self.P = (I - K @ self.H) @ self.P
 
         return (float(self.x[0, 0]), float(self.x[1, 0]))
 
-    # ── State Properties ──────────────────────────────────────────────────────
+    # ── Свойства состояния ───────────────────────────────────────────────────
 
     @property
     def position(self) -> tuple[float, float]:
-        """Current estimated (x, y) position in pixels."""
+        """Текущее оцененное положение (x, y) в пикселях."""
         return (float(self.x[0, 0]), float(self.x[1, 0]))
 
     @property
     def velocity(self) -> tuple[float, float]:
-        """Current estimated (v_x, v_y) velocity in pixels/frame."""
+        """Текущая оцененная скорость (v_x, v_y) в пикселях/кадр."""
         return (float(self.x[2, 0]), float(self.x[3, 0]))
 
     @property
     def speed_px(self) -> float:
-        """Current Euclidean speed in pixels/frame."""
+        """Текущая евклидова скорость в пикселях/кадр."""
         vx, vy = self.velocity
         return float(np.hypot(vx, vy))
 
     @property
     def acceleration(self) -> tuple[float, float]:
-        """Current estimated (a_x, a_y) acceleration in pixels/frame^2."""
+        """Текущее оцененное ускорение (a_x, a_y) в пикселях/кадр^2."""
         return (float(self.x[4, 0]), float(self.x[5, 0]))

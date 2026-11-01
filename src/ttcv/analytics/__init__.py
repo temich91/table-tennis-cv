@@ -1,4 +1,4 @@
-"""Analytics sub-package for table tennis CV metrics and reporting."""
+"""Подпакет аналитики: вычисление игровых метрик и формирование отчетов."""
 
 from ttcv.analytics.metrics import RallyAnalyzer, RallyMetrics, ShotInfo
 from ttcv.analytics.report import format_markdown_report, save_report_json

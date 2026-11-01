@@ -1,11 +1,11 @@
-"""Homography computation and perspective transformation for table tennis.
+"""Вычисление гомографии и перспективное преобразование для настольного тенниса.
 
-Provides:
-  - Canonical 4-corner ordering for perspective quadrilaterals.
-  - Automatic table corner detection from segmentation masks.
-  - TableHomography class for bi-directional projection between camera coordinates,
-    metric table coordinates (mm / meters), and Bird's Eye View (BEV) canvas pixels.
-  - BEV warping of camera frames.
+Предоставляет:
+  - Каноническое упорядочивание 4 угловых точек четырехугольника перспективы.
+  - Автоматическую детекцию углов стола по маскам семантической сегментации.
+  - Класс TableHomography для двунаправленного проецирования между координатами камеры,
+    метрическими координатами стола (в мм и метрах) и пикселями холста вида сверху (BEV).
+  - Перспективное выравнивание (warp) кадров камеры в проекцию сверху (BEV).
 """
 
 from __future__ import annotations
@@ -25,32 +25,32 @@ from ttcv.geometry.table import (
 
 
 def order_quadrilateral_points(pts: np.ndarray) -> np.ndarray:
-    """Order 4 points of a quadrilateral into canonical clockwise order.
+    """Упорядочивание 4 точек четырехугольника в каноническом порядке по часовой стрелке.
 
-    Canonical order:
-      0: Top-Left     (Far-Left in side view,   X=0,    Y=0)
-      1: Top-Right    (Far-Right in side view,  X=2740, Y=0)
-      2: Bottom-Right (Near-Right in side view, X=2740, Y=1525)
-      3: Bottom-Left  (Near-Left in side view,  X=0,    Y=1525)
+    Канонический порядок:
+      0: Top-Left     (Дальний левый при виде сбоку,   X=0,    Y=0)
+      1: Top-Right    (Дальний правый при виде сбоку,  X=2740, Y=0)
+      2: Bottom-Right (Ближний правый при виде сбоку,  X=2740, Y=1525)
+      3: Bottom-Left  (Ближний левый при виде сбоку,   X=0,    Y=1525)
 
-    Args:
-        pts: Array of shape (4, 2) or (4, 1, 2) containing 4 (x, y) coordinates.
+    Аргументы:
+        pts: Массив формы (4, 2) или (4, 1, 2), содержащий 4 координаты (x, y).
 
-    Returns:
-        float32 array of shape (4, 2) in canonical order [TL, TR, BR, BL].
+    Возвращает:
+        Массив float32 формы (4, 2) в каноническом порядке [TL, TR, BR, BL].
     """
     pts = np.asarray(pts, dtype=np.float32).reshape(4, 2)
 
-    # Sort all points by Y coordinate into top 2 and bottom 2
+    # Сортировка всех точек по оси Y на 2 верхние и 2 нижние
     by_y = pts[np.argsort(pts[:, 1])]
     top = by_y[:2]
     bottom = by_y[2:]
 
-    # Top two points sorted by X -> top-left, top-right
+    # Верхние две точки сортируются по X -> top-left, top-right
     top = top[np.argsort(top[:, 0])]
     tl, tr = top[0], top[1]
 
-    # Bottom two points sorted by X -> bottom-left, bottom-right
+    # Нижние две точки сортируются по X -> bottom-left, bottom-right
     bottom = bottom[np.argsort(bottom[:, 0])]
     bl, br = bottom[0], bottom[1]
 
@@ -59,14 +59,14 @@ def order_quadrilateral_points(pts: np.ndarray) -> np.ndarray:
 
 @dataclass
 class TableCorners:
-    """Detected or specified 4 corners of the table in camera view.
+    """Обнаруженные или заданные 4 угла стола в координатах камеры.
 
-    Attributes:
-        corners_camera: Shape (4, 2) array [TL, TR, BR, BL] in camera pixel coordinates.
-        corners_mask:   Shape (4, 2) array [TL, TR, BR, BL] in mask coordinates (if detected).
-        target_size:    (width, height) of the target camera resolution.
-        mask_size:      (width, height) of the input mask (if detected).
-        contour_area:   Contour area in mask space.
+    Атрибуты:
+        corners_camera: Массив формы (4, 2) [TL, TR, BR, BL] в пикселях камеры.
+        corners_mask:   Массив формы (4, 2) [TL, TR, BR, BL] в координатах маски (если обнаружены).
+        target_size:    (width, height) целевого разрешения камеры.
+        mask_size:      (width, height) входной маски (если обнаружена).
+        contour_area:   Площадь контура в пространстве маски.
     """
 
     corners_camera: np.ndarray
@@ -77,30 +77,30 @@ class TableCorners:
 
     @property
     def top_left(self) -> tuple[float, float]:
-        """Far-Left corner (Player A baseline, far sideline)."""
+        """Дальний левый угол (задняя линия Игрока A, дальняя боковая линия)."""
         return (float(self.corners_camera[0, 0]), float(self.corners_camera[0, 1]))
 
     @property
     def top_right(self) -> tuple[float, float]:
-        """Far-Right corner (Player B baseline, far sideline)."""
+        """Дальний правый угол (задняя линия Игрока B, дальняя боковая линия)."""
         return (float(self.corners_camera[1, 0]), float(self.corners_camera[1, 1]))
 
     @property
     def bottom_right(self) -> tuple[float, float]:
-        """Near-Right corner (Player B baseline, near sideline)."""
+        """Ближний правый угол (задняя линия Игрока B, ближняя боковая линия)."""
         return (float(self.corners_camera[2, 0]), float(self.corners_camera[2, 1]))
 
     @property
     def bottom_left(self) -> tuple[float, float]:
-        """Near-Left corner (Player A baseline, near sideline)."""
+        """Ближний левый угол (задняя линия Игрока A, ближняя боковая линия)."""
         return (float(self.corners_camera[3, 0]), float(self.corners_camera[3, 1]))
 
     def as_array(self) -> np.ndarray:
-        """Return camera corners as float32 array of shape (4, 2)."""
+        """Возвращает углы камеры как массив float32 формы (4, 2)."""
         return np.asarray(self.corners_camera, dtype=np.float32)
 
     def to_dict(self) -> dict:
-        """Return dict representation."""
+        """Возвращает представление в виде словаря."""
         return {
             "top_left": list(self.top_left),
             "top_right": list(self.top_right),
@@ -115,21 +115,21 @@ def detect_table_corners_from_mask(
     target_resolution: tuple[int, int] = (1920, 1080),
     table_color_bgr: tuple[int, int, int] = (0, 0, 255),
 ) -> TableCorners:
-    """Detect the 4 corners of the table from a semantic segmentation mask.
+    """Детекция 4 углов стола по маске семантической сегментации.
 
-    In the TTNet dataset, the table surface is annotated as pure Red (BGR [0, 0, 255]).
+    В датасете TTNet поверхность стола размечена чистым красным цветом (BGR [0, 0, 255]).
 
-    Args:
-        mask: Path to the mask PNG file or a loaded NumPy array (BGR or binary).
-        target_resolution: (width, height) of the video / camera frame (default: 1920x1080).
-        table_color_bgr: BGR color of the table class (default: [0, 0, 255] = Red).
+    Аргументы:
+        mask: Путь к PNG-файлу маски или загруженный массив NumPy (BGR или бинарный).
+        target_resolution: (ширина, высота) видеокадра/камеры (по умолчанию: 1920x1080).
+        table_color_bgr: Цвет класса стола в BGR (по умолчанию: [0, 0, 255] = красный).
 
-    Returns:
-        :class:`TableCorners` containing the canonical 4 corners scaled to `target_resolution`.
+    Возвращает:
+        :class:`TableCorners`, содержащий канонические 4 угла, масштабированные под `target_resolution`.
 
-    Raises:
-        FileNotFoundError: If the mask file does not exist.
-        ValueError: If no table contour is found in the mask.
+    Исключения:
+        FileNotFoundError: Если файл маски не найден.
+        ValueError: Если в маске не обнаружен контур стола.
     """
     if isinstance(mask, (str, Path)):
         p = Path(mask)
@@ -142,13 +142,13 @@ def detect_table_corners_from_mask(
         img = np.asarray(mask)
 
     if img.ndim == 2:
-        # Grayscale / binary mask
+        # Бинарная маска / маска в градациях серого
         table_mask = (img > 0).astype(np.uint8)
     elif img.shape[2] == 3:
-        # 3-channel BGR mask
+        # 3-канальная маска BGR
         table_mask = np.all(img == table_color_bgr, axis=-1).astype(np.uint8)
         if table_mask.sum() == 0:
-            # Fallback: check red channel dominant
+            # Запасной вариант: проверяем доминирование красного канала
             table_mask = (
                 (img[:, :, 2] > 200) & (img[:, :, 0] < 50) & (img[:, :, 1] < 50)
             ).astype(np.uint8)
@@ -166,7 +166,7 @@ def detect_table_corners_from_mask(
     c = max(cnts, key=cv2.contourArea)
     area = float(cv2.contourArea(c))
 
-    # Adaptive polygon approximation to find 4 corners
+    # Адаптивная аппроксимация полигона для поиска 4 вершин
     poly: np.ndarray | None = None
     peri = cv2.arcLength(c, True)
     for eps in np.linspace(0.01, 0.12, 60):
@@ -175,11 +175,11 @@ def detect_table_corners_from_mask(
             poly = approx.reshape(4, 2)
             break
 
-    # Fallback if approxPolyDP didn't yield exactly 4 vertices
+    # Запасной вариант, если approxPolyDP не вернул ровно 4 вершины
     if poly is None:
         hull = cv2.convexHull(c).reshape(-1, 2)
         if len(hull) >= 4:
-            # Pick 4 extreme points
+            # Выбор 4 экстремальных точек
             s = hull.sum(axis=1)
             diff = np.diff(hull, axis=1).squeeze()
             tl = hull[np.argmin(s)]
@@ -193,7 +193,7 @@ def detect_table_corners_from_mask(
 
     ordered_mask = order_quadrilateral_points(poly)
 
-    # Scale to target camera resolution
+    # Масштабирование под целевое разрешение камеры
     sx = target_resolution[0] / mask_w
     sy = target_resolution[1] / mask_h
 
@@ -211,13 +211,13 @@ def detect_table_corners_from_mask(
 
 
 class TableHomography:
-    """Bi-directional homography between camera pixels, metric table (mm), and BEV canvas.
+    """Двунаправленная гомография между пикселями камеры, метрическим столом (мм) и холстом BEV.
 
-    Enables:
-      - Projecting 2D ball positions from camera frame to real-world table coordinates (mm/m).
-      - Projecting 2D table coordinates back onto the camera frame.
-      - Warping camera frames to a top-down Bird's Eye View (BEV) image.
-      - Classifying table hits (in/out, player side, depth and lateral zones).
+    Позволяет:
+      - Проецировать 2D-положения мяча из кадра камеры в реальные координаты стола (мм/м).
+      - Проецировать 2D-координаты стола обратно в кадр камеры.
+      - Трансформировать кадры камеры в проекцию сверху вниз (Bird's Eye View / BEV).
+      - Классифицировать отскоки от стола (попадание/аут, сторона игрока, зоны глубины и ширины).
     """
 
     def __init__(
@@ -226,12 +226,12 @@ class TableHomography:
         bev_canvas_size: tuple[int, int] = (1100, 650),
         bev_margin: int = 50,
     ) -> None:
-        """Initialize TableHomography.
+        """Инициализация TableHomography.
 
-        Args:
-            corners: Either a :class:`TableCorners` instance or a (4, 2) array of camera corners.
-            bev_canvas_size: (width, height) in pixels of the Bird's Eye View canvas.
-            bev_margin: Margin in pixels around the table on the BEV canvas.
+        Аргументы:
+            corners: Экземпляр :class:`TableCorners` или массив (4, 2) углов камеры.
+            bev_canvas_size: (ширина, высота) в пикселях холста вида сверху (BEV).
+            bev_margin: Отступ в пикселях вокруг стола на холсте BEV.
         """
         if isinstance(corners, TableCorners):
             self.corners = corners
@@ -244,13 +244,13 @@ class TableHomography:
 
         src_pts = self.corners.corners_camera.astype(np.float32)
 
-        # ── 1. Metric Homography (Camera px -> Table mm) ─────────────────────
-        # Canonical corners: [TL, TR, BR, BL]
+        # ── 1. Метрическая гомография (пиксели камеры -> мм стола) ───────────
+        # Канонические углы: [TL, TR, BR, BL]
         dst_mm = TableDimensions.canonical_corners_mm().astype(np.float32)
         self.H_table: np.ndarray = cv2.getPerspectiveTransform(src_pts, dst_mm)
         self.H_table_inv: np.ndarray = np.linalg.inv(self.H_table)
 
-        # ── 2. Canvas Homography (Camera px -> BEV Canvas px) ────────────────
+        # ── 2. Гомография холста (пиксели камеры -> пиксели холста BEV) ──────
         w_canv, h_canv = self.bev_size
         m = self.bev_margin
         dst_bev = np.array(
@@ -273,20 +273,20 @@ class TableHomography:
         bev_canvas_size: tuple[int, int] = (1100, 650),
         bev_margin: int = 50,
     ) -> TableHomography:
-        """Factory method: create TableHomography directly from a segmentation mask."""
+        """Фабричный метод: создание TableHomography напрямую по маске сегментации."""
         corners = detect_table_corners_from_mask(mask, target_resolution=target_resolution)
         return cls(corners, bev_canvas_size=bev_canvas_size, bev_margin=bev_margin)
 
-    # ── Point Projections ─────────────────────────────────────────────────────
+    # ── Проекция точек ────────────────────────────────────────────────────────
 
     def project_to_table(self, points_cam: np.ndarray) -> np.ndarray:
-        """Project camera pixel coordinates to table surface coordinates (mm).
+        """Проекция координат пикселей камеры в координаты поверхности стола (мм).
 
-        Args:
-            points_cam: Array of shape (N, 2) or (2,) with [x, y] in camera pixels.
+        Аргументы:
+            points_cam: Массив формы (N, 2) или (2,) с [x, y] в пикселях камеры.
 
-        Returns:
-            Array of shape (N, 2) with [x_mm, y_mm] on table surface.
+        Возвращает:
+            Массив формы (N, 2) с [x_mm, y_mm] на поверхности стола.
         """
         pts = np.asarray(points_cam, dtype=np.float32)
         orig_shape = pts.shape
@@ -295,13 +295,13 @@ class TableHomography:
         return pts_table.reshape(orig_shape)
 
     def project_to_bev(self, points_cam: np.ndarray) -> np.ndarray:
-        """Project camera pixel coordinates to Bird's Eye View canvas pixels.
+        """Проекция координат пикселей камеры на холст вида сверху (BEV).
 
-        Args:
-            points_cam: Array of shape (N, 2) or (2,) with [x, y] in camera pixels.
+        Аргументы:
+            points_cam: Массив формы (N, 2) или (2,) с [x, y] в пикселях камеры.
 
-        Returns:
-            Array of shape (N, 2) with [x_bev, y_bev] canvas pixels.
+        Возвращает:
+            Массив формы (N, 2) с [x_bev, y_bev] в пикселях холста.
         """
         pts = np.asarray(points_cam, dtype=np.float32)
         orig_shape = pts.shape
@@ -310,13 +310,13 @@ class TableHomography:
         return pts_bev.reshape(orig_shape)
 
     def project_table_to_camera(self, points_table: np.ndarray) -> np.ndarray:
-        """Project table coordinates (mm) back to camera pixel coordinates.
+        """Обратная проекция координат стола (мм) в пиксели камеры.
 
-        Args:
-            points_table: Array of shape (N, 2) or (2,) with [x_mm, y_mm].
+        Аргументы:
+            points_table: Массив формы (N, 2) или (2,) с [x_mm, y_mm].
 
-        Returns:
-            Array of shape (N, 2) with [x_cam, y_cam] in camera pixels.
+        Возвращает:
+            Массив формы (N, 2) с [x_cam, y_cam] в пикселях камеры.
         """
         pts = np.asarray(points_table, dtype=np.float32)
         orig_shape = pts.shape
@@ -325,37 +325,37 @@ class TableHomography:
         return pts_cam.reshape(orig_shape)
 
     def project_bev_to_camera(self, points_bev: np.ndarray) -> np.ndarray:
-        """Project BEV canvas pixel coordinates back to camera pixel coordinates."""
+        """Обратная проекция пикселей холста BEV в пиксели камеры."""
         pts = np.asarray(points_bev, dtype=np.float32)
         orig_shape = pts.shape
         pts = pts.reshape(-1, 1, 2)
         pts_cam = cv2.perspectiveTransform(pts, self.H_bev_inv)
         return pts_cam.reshape(orig_shape)
 
-    # ── Image Warping ─────────────────────────────────────────────────────────
+    # ── Трансформация изображений (Warping) ───────────────────────────────────
 
     def warp_to_bev(self, camera_frame: np.ndarray) -> np.ndarray:
-        """Warp a full camera frame to Bird's Eye View.
+        """Перспективное преобразование кадра камеры в вид сверху (Bird's Eye View).
 
-        Args:
-            camera_frame: (H, W, C) or (H, W) image array matching target_resolution.
+        Аргументы:
+            camera_frame: Изображение (H, W, C) или (H, W), соответствующее target_resolution.
 
-        Returns:
-            Warped image array of shape (bev_size[1], bev_size[0], C).
+        Возвращает:
+            Трансформированное изображение формы (bev_size[1], bev_size[0], C).
         """
         w, h = self.bev_size
         return cv2.warpPerspective(camera_frame, self.H_bev, (w, h))
 
-    # ── Point Analysis ────────────────────────────────────────────────────────
+    # ── Анализ точек ──────────────────────────────────────────────────────────
 
     def classify_camera_point(self, x_cam: float, y_cam: float) -> TablePoint:
-        """Classify a camera coordinate by projecting it to table space."""
+        """Классификация координаты камеры путем проецирования в пространство стола."""
         pt_table = self.project_to_table(np.array([x_cam, y_cam]))
         return TablePoint(x_mm=float(pt_table[0]), y_mm=float(pt_table[1]))
 
     def is_on_table(
         self, x_cam: float, y_cam: float, margin_mm: float = 0.0
     ) -> bool:
-        """Check whether a camera pixel lies on the table surface."""
+        """Проверка, попадает ли пиксель камеры на поверхность стола."""
         tp = self.classify_camera_point(x_cam, y_cam)
         return tp.is_on_table(margin_mm=margin_mm)

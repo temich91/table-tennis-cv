@@ -1,6 +1,6 @@
-"""Root launcher for Streamlit Dashboard.
+"""Точка входа для запуска дашборда Streamlit.
 
-Usage::
+Использование::
 
     streamlit run app.py
 """

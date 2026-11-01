@@ -1,3 +1,3 @@
-"""PingPongVision — Ball Tracking & Table Bounce Analytics."""
+"""PingPongVision — отслеживание мяча и аналитика отскоков от стола."""
 
 __version__ = "0.1.0"

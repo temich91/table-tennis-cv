@@ -1,10 +1,10 @@
-"""Rally analytics and physical metrics extraction.
+"""Аналитика розыгрышей и извлечение физических метрик.
 
-Extracts:
-  - Total rally duration and shot count.
-  - Bounce counts and spatial distribution (Player A vs Player B, deep vs short).
-  - Ball velocity profiles and speed distribution in km/h.
-  - Shot segmentation (interval, speed, and target zone per stroke).
+Извлекает:
+  - Общую длительность розыгрыша и количество ударов.
+  - Количество отскоков и их пространственное распределение (Игрок A против Игрока B, глубокие против коротких).
+  - Профили скорости мяча и распределение скорости в км/ч.
+  - Сегментацию ударов (интервал, скорость и целевая зона для каждого удара).
 """
 
 from __future__ import annotations
@@ -30,20 +30,20 @@ if TYPE_CHECKING:
 
 @dataclass
 class ShotInfo:
-    """Information about a single stroke / shot during a rally.
+    """Информация об отдельном ударе в ходе розыгрыша.
 
-    Attributes:
-        shot_id: Index of the shot in the rally (0, 1, 2...).
-        start_frame: Beginning frame of the shot.
-        end_frame: Ending frame of the shot (at subsequent bounce / hit).
-        duration_sec: Flight time in seconds.
-        bounce_frame: Frame where ball bounced on receiver's table half.
-        hitter: TableSide (Player A or Player B).
-        receiver: TableSide.
-        bounce_xy_mm: (x, y) coordinates on table in mm at bounce.
-        bounce_zone: Detailed zone descriptor (e.g. 'player_b_deep_left').
-        max_speed_kmh: Peak velocity reached during the shot.
-        mean_speed_kmh: Average flight velocity in km/h.
+    Атрибуты:
+        shot_id: Индекс удара в розыгрыше (0, 1, 2...).
+        start_frame: Начальный кадр удара.
+        end_frame: Конечный кадр удара (в момент последующего отскока / удара).
+        duration_sec: Время полета в секундах.
+        bounce_frame: Кадр, в котором мяч отскочил на половине стола принимающего.
+        hitter: Сторона стола бьющего игрока (TableSide: Игрок A или Игрок B).
+        receiver: Сторона стола принимающего игрока (TableSide).
+        bounce_xy_mm: Координаты (x, y) на столе в мм при отскоке.
+        bounce_zone: Детальное описание зоны (например, 'player_b_deep_left').
+        max_speed_kmh: Пиковая скорость, достигнутая во время удара.
+        mean_speed_kmh: Средняя скорость полета в км/ч.
     """
 
     shot_id: int
@@ -61,22 +61,22 @@ class ShotInfo:
 
 @dataclass
 class RallyMetrics:
-    """Aggregated match and rally analytics.
+    """Агрегированная аналитика матча и розыгрыша.
 
-    Attributes:
-        total_frames: Total processed frames.
-        duration_sec: Duration in seconds.
-        fps: Video frame rate.
-        total_bounces: Number of detected bounces.
-        bounces_player_a: Bounces on Player A's half.
-        bounces_player_b: Bounces on Player B's half.
-        depth_distribution: Counts per depth zone ({'deep': N, 'medium': N, 'short': N}).
-        lateral_distribution: Counts per lateral zone ({'left': N, 'right': N}).
-        max_speed_kmh: Peak ball velocity recorded.
-        mean_speed_kmh: Average ball velocity.
-        speed_series: List of (time_sec, speed_kmh) tuples for plotting.
-        shots: Segmented shots.
-        interpolation_rate: Percentage of frames reconstructed by tracker.
+    Атрибуты:
+        total_frames: Общее количество обработанных кадров.
+        duration_sec: Длительность в секундах.
+        fps: Частота кадров видео.
+        total_bounces: Количество обнаруженных отскоков.
+        bounces_player_a: Количество отскоков на половине Игрока A.
+        bounces_player_b: Количество отскоков на половине Игрока B.
+        depth_distribution: Распределение по глубине ({'deep': N, 'medium': N, 'short': N}).
+        lateral_distribution: Распределение по сторонам ({'left': N, 'right': N}).
+        max_speed_kmh: Зафиксированная максимальная скорость мяча.
+        mean_speed_kmh: Средняя скорость мяча.
+        speed_series: Список кортежей (time_sec, speed_kmh) для построения графиков.
+        shots: Сегментированные удары.
+        interpolation_rate: Доля кадров (в процентах), восстановленных трекером.
     """
 
     total_frames: int
@@ -98,7 +98,7 @@ class RallyMetrics:
     interpolation_rate: float = 0.0
 
     def summary_dict(self) -> dict:
-        """Return a structured dictionary for JSON / dashboard reporting."""
+        """Возвращает структурированный словарь для JSON-отчетов и дашборда."""
         return {
             "duration_sec": round(self.duration_sec, 2),
             "total_frames": self.total_frames,
@@ -116,18 +116,18 @@ class RallyMetrics:
 
 
 class RallyAnalyzer:
-    """Extracts game analytics and physics from tracked ball trajectories."""
+    """Извлечение игровой аналитики и физических параметров из отслеженных траекторий мяча."""
 
     def __init__(
         self,
         homography: TableHomography | None = None,
         fps: float = 120.0,
     ) -> None:
-        """Initialize RallyAnalyzer.
+        """Инициализация RallyAnalyzer.
 
-        Args:
-            homography: Optional TableHomography instance.
-            fps: Frame rate of the video sequence.
+        Аргументы:
+            homography: Опциональный экземпляр TableHomography.
+            fps: Частота кадров видеопоследовательности.
         """
         self.homography = homography
         self.fps = fps
@@ -137,14 +137,14 @@ class RallyAnalyzer:
         track_points: list[TrackPoint],
         annotated_bounce_frames: list[int] | None = None,
     ) -> RallyMetrics:
-        """Analyze a complete sequence of TrackPoints.
+        """Анализ полной последовательности точек TrackPoint.
 
-        Args:
-            track_points: Output history from BallTracker.
-            annotated_bounce_frames: Optional list of known bounce frame indices.
+        Аргументы:
+            track_points: История трекинга от BallTracker.
+            annotated_bounce_frames: Опциональный список известных индексов кадров с отскоками.
 
-        Returns:
-            Computed :class:`RallyMetrics`.
+        Возвращает:
+            Вычисленный объект :class:`RallyMetrics`.
         """
         if not track_points:
             return RallyMetrics(total_frames=0, duration_sec=0.0, fps=self.fps)
@@ -154,7 +154,7 @@ class RallyAnalyzer:
         max_fid = track_points[-1].frame_id
         duration_sec = (max_fid - min_fid + 1) / self.fps
 
-        # 1. Speeds
+        # 1. Скорости
         speeds: list[float] = []
         speed_series: list[tuple[float, float]] = []
         predicted_count = 0
@@ -172,13 +172,13 @@ class RallyAnalyzer:
         mean_speed = float(np.mean(speeds)) if speeds else 0.0
         interp_rate = (predicted_count / total_frames * 100.0) if total_frames else 0.0
 
-        # 2. Bounces: use provided or detect from vertical velocity
+        # 2. Отскоки: используем предоставленные или определяем по вертикальной скорости
         if annotated_bounce_frames is not None:
             bounce_fids = set(annotated_bounce_frames)
         else:
             bounce_fids = set(self._detect_bounces(track_points))
 
-        # 3. Analyze Bounces on Table
+        # 3. Анализ отскоков на столе
         bounces_a = 0
         bounces_b = 0
         depth_dist = {"deep": 0, "medium": 0, "short": 0, "outside": 0}
@@ -202,7 +202,7 @@ class RallyAnalyzer:
                     depth_dist["outside"] += 1
                     lateral_dist["outside"] += 1
 
-        # 4. Segment Shots
+        # 4. Сегментация ударов
         shots = self._segment_shots(track_points, sorted_bounce_fids)
 
         return RallyMetrics(
@@ -226,7 +226,7 @@ class RallyAnalyzer:
         track_points: list[TrackPoint],
         min_vy_change: float = 3.5,
     ) -> list[int]:
-        """Detect bounce frames where vertical velocity flips from downward to upward."""
+        """Определение кадров отскоков, где вертикальная скорость меняет знак (движение вниз сменяется движением вверх)."""
         bounce_frames: list[int] = []
         last_bounce_fid = -1000
 
@@ -248,7 +248,7 @@ class RallyAnalyzer:
         track_points: list[TrackPoint],
         bounce_fids: list[int],
     ) -> list[ShotInfo]:
-        """Group trajectory points into individual shots divided by bounces."""
+        """Группировка точек траектории в отдельные удары, разделенные отскоками."""
         shots: list[ShotInfo] = []
         if len(bounce_fids) < 1:
             return shots

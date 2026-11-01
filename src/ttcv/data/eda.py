@@ -1,15 +1,15 @@
-"""Exploratory Data Analysis helpers for the TTNet dataset.
+"""Вспомогательные функции разведочного анализа данных (EDA) для датасета TTNet.
 
-Provides functions to:
-  - Print a textual summary of a GameClip.
-  - Plot the ball trajectory (pixel space).
-  - Plot the event distribution.
-  - Plot ball visibility gaps (frames where ball is invisible).
-  - Load and display a segmentation mask.
-  - Plot heatmap of ball positions over a schematic table silhouette.
+Предоставляет функции для:
+  - Вывода текстовой сводки по объекту GameClip.
+  - Построения графика траектории мяча (в пиксельном пространстве).
+  - Построения распределения игровых событий.
+  - Построения графика пропусков видимости мяча (кадры, где мяч скрыт).
+  - Загрузки и отображения маски сегментации.
+  - Построения тепловой карты положений мяча над схематичным силуэтом стола.
 
-All plotting functions return a ``matplotlib.figure.Figure`` so they can be
-saved programmatically or displayed in a notebook.
+Все функции визуализации возвращают объект ``matplotlib.figure.Figure``,
+поэтому графики можно сохранять программно или отображать в Jupyter Notebook.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from ttcv.data.dataset import (
     FRAME_WIDTH,
 )
 
-# ── Color palette ─────────────────────────────────────────────────────────────
+# ── Цветовая палитра ─────────────────────────────────────────────────────────
 
 EVENT_COLORS: dict[str, str] = {
     EVENT_BOUNCE: "#e74c3c",
@@ -40,11 +40,11 @@ EVENT_COLORS: dict[str, str] = {
     EVENT_EMPTY: "#95a5a6",
 }
 
-# ── Text summary ──────────────────────────────────────────────────────────────
+# ── Текстовая сводка ──────────────────────────────────────────────────────────
 
 
 def print_summary(clip: "GameClip") -> None:
-    """Print a formatted summary of the clip statistics to stdout."""
+    """Вывод форматированной сводки по статистике клипа в стандартный поток вывода."""
     s = clip.summary()
     print("=" * 60)
     print(f"Clip: {s['clip_root']}")
@@ -63,7 +63,7 @@ def print_summary(clip: "GameClip") -> None:
     print("=" * 60)
 
 
-# ── Trajectory plot ───────────────────────────────────────────────────────────
+# ── График траектории ─────────────────────────────────────────────────────────
 
 
 def plot_trajectory(
@@ -72,23 +72,23 @@ def plot_trajectory(
     figsize: tuple[float, float] = (14, 6),
     title: str = "Ball Trajectory (pixel space)",
 ) -> plt.Figure:
-    """Plot X and Y pixel coordinates of the ball over time.
+    """Построение графика координат X и Y мяча в пикселях во времени.
 
-    Visible frames are drawn as a continuous line; invisible frames are shown
-    as grey shaded regions on the axes.
+    Кадры с видимым мячом рисуются сплошной линией; кадры с невидимым мячом
+    выделяются серыми вертикальными линиями на осях.
 
-    Args:
-        clip:    The game clip to visualise.
-        figsize: Figure size in inches.
-        title:   Figure super-title.
+    Аргументы:
+        clip:    Игровой клип для визуализации.
+        figsize: Размер фигуры в дюймах.
+        title:   Заголовок графика.
 
-    Returns:
-        A :class:`matplotlib.figure.Figure`.
+    Возвращает:
+        Экземпляр :class:`matplotlib.figure.Figure`.
     """
-    traj = clip.trajectory_array  # shape (N, 3): [frame_id, x, y]
+    traj = clip.trajectory_array  # форма (N, 3): [frame_id, x, y]
     all_fids = np.array(clip.frame_ids)
 
-    # Identify invisible frames
+    # Определение кадров, где мяч скрыт
     invisible_fids = sorted(
         fid for fid, bp in clip.ball_data.items() if not bp.visible
     )
@@ -104,7 +104,7 @@ def plot_trajectory(
             ax.plot(traj[:, 0], traj[:, dim], color=color, linewidth=0.8, alpha=0.85)
             ax.scatter(traj[:, 0], traj[:, dim], s=3, color=color, alpha=0.5, zorder=3)
 
-        # Shade invisible regions
+        # Затенение областей с невидимым мячом
         for fid in invisible_fids:
             ax.axvline(fid, color="grey", linewidth=0.4, alpha=0.3)
 
@@ -114,7 +114,7 @@ def plot_trajectory(
 
     ax_y.set_xlabel("Frame ID")
 
-    # Add event markers on X axis
+    # Добавление маркеров событий на ось X
     _add_event_markers(ax_x, clip)
     _add_event_markers(ax_y, clip)
 
@@ -123,7 +123,7 @@ def plot_trajectory(
 
 
 def _add_event_markers(ax: plt.Axes, clip: "GameClip") -> None:
-    """Draw vertical lines for bounce/net events on *ax*."""
+    """Отрисовка вертикальных пунктирных линий для событий отскока/сетки на оси *ax*."""
     for fid, ev in clip.event_data.items():
         if ev.event in (EVENT_BOUNCE, EVENT_NET):
             ax.axvline(
@@ -135,7 +135,7 @@ def _add_event_markers(ax: plt.Axes, clip: "GameClip") -> None:
             )
 
 
-# ── Event distribution ────────────────────────────────────────────────────────
+# ── Распределение событий ─────────────────────────────────────────────────────
 
 
 def plot_event_distribution(
@@ -144,15 +144,15 @@ def plot_event_distribution(
     figsize: tuple[float, float] = (6, 4),
     title: str = "Event Distribution",
 ) -> plt.Figure:
-    """Bar chart showing count of each event type.
+    """Столбчатая диаграмма количества событий каждого типа.
 
-    Args:
-        clip:    The game clip to visualise.
-        figsize: Figure size.
-        title:   Plot title.
+    Аргументы:
+        clip:    Игровой клип для визуализации.
+        figsize: Размер фигуры.
+        title:   Заголовок графика.
 
-    Returns:
-        A :class:`matplotlib.figure.Figure`.
+    Возвращает:
+        Экземпляр :class:`matplotlib.figure.Figure`.
     """
     s = clip.summary()["events"]
     labels = [EVENT_BOUNCE, EVENT_NET, EVENT_EMPTY]
@@ -170,7 +170,7 @@ def plot_event_distribution(
     return fig
 
 
-# ── Visibility gap analysis ───────────────────────────────────────────────────
+# ── Анализ пропусков видимости ────────────────────────────────────────────────
 
 
 def plot_visibility(
@@ -179,15 +179,15 @@ def plot_visibility(
     figsize: tuple[float, float] = (14, 2.5),
     title: str = "Ball Visibility Timeline",
 ) -> plt.Figure:
-    """Horizontal timeline showing when the ball is visible vs invisible.
+    """Горизонтальная временная шкала, показывающая периоды видимости и невидимости мяча.
 
-    Args:
-        clip:    The game clip.
-        figsize: Figure size.
-        title:   Plot title.
+    Аргументы:
+        clip:    Игровой клип.
+        figsize: Размер фигуры.
+        title:   Заголовок графика.
 
-    Returns:
-        A :class:`matplotlib.figure.Figure`.
+    Возвращает:
+        Экземпляр :class:`matplotlib.figure.Figure`.
     """
     fids = np.array(clip.frame_ids)
     visibility = np.array(
@@ -209,7 +209,7 @@ def plot_visibility(
     return fig
 
 
-# ── Segmentation mask display ─────────────────────────────────────────────────
+# ── Отображение маски сегментации ──────────────────────────────────────────────
 
 
 def show_mask(
@@ -218,21 +218,21 @@ def show_mask(
     *,
     figsize: tuple[float, float] = (8, 4),
 ) -> plt.Figure:
-    """Display the segmentation mask for a specific frame.
+    """Отображение маски сегментации для конкретного кадра.
 
-    Args:
-        clip:     The game clip.
-        frame_id: Frame to display.
-        figsize:  Figure size.
+    Аргументы:
+        clip:     Игровой клип.
+        frame_id: Номер кадра для отображения.
+        figsize:  Размер фигуры.
 
-    Returns:
-        A :class:`matplotlib.figure.Figure`.
+    Возвращает:
+        Экземпляр :class:`matplotlib.figure.Figure`.
 
-    Raises:
-        FileNotFoundError: If no mask exists for *frame_id*.
-        ValueError:        If *clip* has no mask directory.
+    Исключения:
+        FileNotFoundError: Если для *frame_id* маска отсутствует.
+        ValueError:        Если у *clip* нет директории с масками.
     """
-    import cv2  # local import — only needed when actually called
+    import cv2  # локальный импорт — требуется только при непосредственном вызове
 
     fa = clip.get_frame(frame_id)
     if fa.mask_path is None:
@@ -255,7 +255,7 @@ def show_mask(
     return fig
 
 
-# ── Ball position heatmap ─────────────────────────────────────────────────────
+# ── Тепловая карта положений мяча ─────────────────────────────────────────────
 
 
 def plot_ball_heatmap(
@@ -265,16 +265,16 @@ def plot_ball_heatmap(
     bins: int = 40,
     title: str = "Ball Position Heatmap (pixel space)",
 ) -> plt.Figure:
-    """2D heatmap of all visible ball positions in full-frame pixel space.
+    """2D тепловая карта всех положений видимого мяча в пиксельном пространстве кадра.
 
-    Args:
-        clip:    The game clip.
-        figsize: Figure size.
-        bins:    Number of histogram bins in each dimension.
-        title:   Plot title.
+    Аргументы:
+        clip:    Игровой клип.
+        figsize: Размер фигуры.
+        bins:    Количество бинов гистограммы по каждому измерению.
+        title:   Заголовок графика.
 
-    Returns:
-        A :class:`matplotlib.figure.Figure`.
+    Возвращает:
+        Экземпляр :class:`matplotlib.figure.Figure`.
     """
     visible = clip.visible_ball_positions
     if not visible:
@@ -296,7 +296,7 @@ def plot_ball_heatmap(
     )
     fig.colorbar(h[3], ax=ax, label="Density")
 
-    # Mark bounce positions with dots
+    # Отметка положений отскоков точками
     bounce_fids = set(clip.bounce_frames)
     bx = [clip.ball_data[f].x for f in bounce_fids if f in clip.ball_data and clip.ball_data[f].visible]
     by = [clip.ball_data[f].y for f in bounce_fids if f in clip.ball_data and clip.ball_data[f].visible]
@@ -307,13 +307,13 @@ def plot_ball_heatmap(
     ax.set_xlabel("X (px)")
     ax.set_ylabel("Y (px)")
     ax.set_xlim(0, FRAME_WIDTH)
-    ax.set_ylim(FRAME_HEIGHT, 0)  # Image convention: y increases downward
+    ax.set_ylim(FRAME_HEIGHT, 0)  # Общепринятая ориентация изображения: ось Y направлена вниз
     ax.legend(loc="upper right")
     fig.tight_layout()
     return fig
 
 
-# ── Consecutive gap analysis ──────────────────────────────────────────────────
+# ── Анализ длительности пропусков видимости ───────────────────────────────────
 
 
 def plot_gap_distribution(
@@ -322,23 +322,23 @@ def plot_gap_distribution(
     figsize: tuple[float, float] = (8, 4),
     title: str = "Invisibility Gap Length Distribution",
 ) -> plt.Figure:
-    """Histogram of consecutive invisible-ball segment lengths (in frames).
+    """Гистограмма длины непрерывных отрезков невидимости мяча (в кадрах).
 
-    Useful for understanding how long the ball is typically occluded/missing,
-    which informs the choice of interpolation / Kalman prediction horizon.
+    Полезна для понимания того, насколько долго мяч обычно перекрыт или отсутствует,
+    что помогает выбрать горизонт предсказания фильтра Калмана / интерполяции.
 
-    Args:
-        clip:    The game clip.
-        figsize: Figure size.
-        title:   Plot title.
+    Аргументы:
+        clip:    Игровой клип.
+        figsize: Размер фигуры.
+        title:   Заголовок графика.
 
-    Returns:
-        A :class:`matplotlib.figure.Figure`.
+    Возвращает:
+        Экземпляр :class:`matplotlib.figure.Figure`.
     """
     fids = np.array(sorted(clip.ball_data.keys()))
     is_invisible = np.array([not clip.ball_data[f].visible for f in fids])
 
-    # Find contiguous invisible segments
+    # Поиск смежных невидимых отрезков
     gap_lengths: list[int] = []
     current_gap = 0
     for flag in is_invisible:
@@ -358,7 +358,7 @@ def plot_gap_distribution(
         ax.set_ylabel("Count")
         ax.set_title(title, fontweight="bold")
         ax.grid(axis="y", alpha=0.3)
-        # Statistics text
+        # Статистика в текстовом блоке
         ax.text(
             0.98,
             0.95,

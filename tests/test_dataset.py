@@ -1,4 +1,4 @@
-"""Tests for ttcv.data.dataset."""
+"""Тесты для ttcv.data.dataset."""
 
 from __future__ import annotations
 
@@ -21,16 +21,16 @@ from ttcv.data.dataset import (
 )
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
+# ── Фикстуры ──────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def sample_clip_dir(tmp_path: Path) -> Path:
-    """Create a minimal temporary clip directory with sample annotations."""
+    """Создание минимальной временной директории клипа с примерами аннотаций."""
     ball_data = {
         "10": {"x": 100, "y": 200},
         "11": {"x": 110, "y": 195},
-        "12": {"x": -1, "y": -1},  # invisible
+        "12": {"x": -1, "y": -1},  # невидимый мяч
         "13": {"x": 130, "y": 185},
     }
     events_data = {
@@ -41,7 +41,7 @@ def sample_clip_dir(tmp_path: Path) -> Path:
     (tmp_path / "ball_markup.json").write_text(json.dumps(ball_data), encoding="utf-8")
     (tmp_path / "events_markup.json").write_text(json.dumps(events_data), encoding="utf-8")
 
-    # Add a dummy segmentation mask (1px PNG)
+    # Добавление фиктивной маски сегментации (PNG 1px)
     mask_dir = tmp_path / "segmentation_masks"
     mask_dir.mkdir()
     _write_minimal_png(mask_dir / "11.png")
@@ -50,7 +50,7 @@ def sample_clip_dir(tmp_path: Path) -> Path:
 
 
 def _write_minimal_png(path: Path) -> None:
-    """Write a 1×1 black PNG to *path* without external dependencies."""
+    """Запись минимального черного PNG 1×1 по пути *path* без внешних зависимостей."""
     import zlib
     import struct
 
@@ -138,7 +138,7 @@ class TestLoadGameClip:
             load_game_clip(tmp_path)
 
 
-# ── GameClip properties ───────────────────────────────────────────────────────
+# ── Свойства GameClip ─────────────────────────────────────────────────────────
 
 
 class TestGameClip:
@@ -163,12 +163,12 @@ class TestGameClip:
     def test_visible_ball_positions(self, sample_clip_dir: Path):
         clip = load_game_clip(sample_clip_dir)
         visible = clip.visible_ball_positions
-        assert len(visible) == 3  # frames 10, 11, 13
+        assert len(visible) == 3  # кадры 10, 11, 13
 
     def test_trajectory_array_shape(self, sample_clip_dir: Path):
         clip = load_game_clip(sample_clip_dir)
         traj = clip.trajectory_array
-        assert traj.shape == (3, 3)  # 3 visible frames × [frame_id, x, y]
+        assert traj.shape == (3, 3)  # 3 видимых кадра × [frame_id, x, y]
 
     def test_trajectory_array_sorted(self, sample_clip_dir: Path):
         clip = load_game_clip(sample_clip_dir)
@@ -184,7 +184,7 @@ class TestGameClip:
     def test_get_frame_no_mask_for_unlisted(self, sample_clip_dir: Path):
         clip = load_game_clip(sample_clip_dir)
         fa = clip.get_frame(10)
-        assert not fa.has_mask  # only frame 11 has a mask file
+        assert not fa.has_mask  # только для кадра 11 есть маска
 
     def test_summary_structure(self, sample_clip_dir: Path):
         clip = load_game_clip(sample_clip_dir)
@@ -202,7 +202,6 @@ class TestGameClip:
 
 class TestLoadDataset:
     def test_discovers_clips(self, sample_clip_dir: Path):
-        # sample_clip_dir itself contains the annotation files
         clips = load_dataset(sample_clip_dir)
         assert len(clips) == 1
 

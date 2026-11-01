@@ -1,10 +1,10 @@
-"""Tracking sub-package for table tennis ball detection and trajectory estimation.
+"""Подпакет трекинга: детекция мяча и оценка траектории в настольном теннисе.
 
-Contains:
-  - BallKalmanFilter: 6-state constant acceleration kinematic filter.
-  - BallTracker: High-level tracker with comet tail, speed estimation, and bounce detection.
-  - Detectors: BaseBallDetector, BallDetection, MockBallDetector, ColorMotionBallDetector, YOLOv8BallDetector.
-  - Dataset Generator: convert_markup_to_yolo_format, generate_synthetic_rally.
+Содержит:
+  - BallKalmanFilter: 6-параметрический кинематический фильтр Калмана постоянного ускорения.
+  - BallTracker: Высокоуровневый трекер с кометным шлейфом, оценкой скорости и детекцией отскоков.
+  - Детекторы: BaseBallDetector, BallDetection, MockBallDetector, ColorMotionBallDetector, YOLOv8BallDetector.
+  - Генератор датасета: convert_markup_to_yolo_format, generate_synthetic_rally.
 """
 
 from ttcv.tracking.dataset_generator import (

@@ -1,4 +1,4 @@
-"""Tests for ttcv.tracking (Kalman filter, tracker, detectors, dataset generator)."""
+"""Тесты для ttcv.tracking (фильтр Калмана, трекер, детекторы, генератор датасета)."""
 
 from __future__ import annotations
 
@@ -42,11 +42,11 @@ class TestBallKalmanFilter:
     def test_prediction_moves_with_velocity(self):
         kf = BallKalmanFilter()
         kf.update((100.0, 200.0))
-        # Provide second measurement to establish velocity (dx=10, dy=-5)
+        # Второе измерение для установления скорости (dx=10, dy=-5)
         kf.predict()
         kf.update((110.0, 195.0))
 
-        # Next predict should move roughly along the same velocity
+        # Следующее предсказание должно сместиться примерно с той же скоростью
         pred_x, pred_y = kf.predict()
         assert pred_x > 115.0
         assert pred_y < 195.0
@@ -85,19 +85,18 @@ class TestBallTracker:
 
     def test_gap_filling_interpolation(self):
         tracker = BallTracker(max_lost_frames=5)
-        # Establish trajectory
+        # Задаем начальную траекторию
         tracker.update(frame_id=0, detection_xy=(100.0, 200.0))
         tracker.update(frame_id=1, detection_xy=(110.0, 200.0))
         tracker.update(frame_id=2, detection_xy=(120.0, 200.0))
 
-        # Dropouts for 2 frames
+        # Пропуски детекции на 2 кадра
         pt3 = tracker.update(frame_id=3, detection_xy=None)
         pt4 = tracker.update(frame_id=4, detection_xy=(-1.0, -1.0))
 
         assert pt3 is not None
         assert pt3.is_predicted
-        assert pt3.x > 120.0  # Continued along trajectory
-
+        assert pt3.x > 120.0  # Продолжил движение вдоль траектории
         assert pt4 is not None
         assert pt4.is_predicted
         assert pt4.x > pt3.x
@@ -108,11 +107,11 @@ class TestBallTracker:
         tracker = BallTracker(max_lost_frames=3)
         tracker.update(frame_id=0, detection_xy=(100.0, 100.0))
 
-        # 3 missing frames allowed
+        # Допустимо 3 пропущенных кадра
         for fid in range(1, 4):
             assert tracker.update(frame_id=fid, detection_xy=None) is not None
 
-        # 4th missing frame exceeds max_lost_frames -> returns None
+        # 4-й пропущенный кадр превышает max_lost_frames -> возвращается None
         lost_pt = tracker.update(frame_id=4, detection_xy=None)
         assert lost_pt is None
 
@@ -121,7 +120,7 @@ class TestBallTracker:
         homography = TableHomography(corners)
         tracker = BallTracker(homography=homography, fps=120.0)
 
-        # Move horizontally across table
+        # Движение горизонтально вдоль стола
         pt1 = tracker.update(frame_id=0, detection_xy=(600.0, 650.0))
         pt2 = tracker.update(frame_id=1, detection_xy=(620.0, 650.0))
 
@@ -140,10 +139,10 @@ class TestBallTracker:
 
     def test_bounce_detection(self):
         tracker = BallTracker()
-        # Simulate downward fall then upward bounce (in camera px, Y increases downwards)
-        # Frames 0-4: falling down (Y increases from 500 to 700)
-        # Frame 5: bounce at Y=700
-        # Frames 6-10: rising up (Y decreases from 700 to 500)
+        # Симулируем падение вниз и последующий отскок вверх (в пикселях камеры Y растет вниз)
+        # Кадры 0-4: падение вниз (Y растет с 500 до 700)
+        # Кадр 5: отскок на Y=700
+        # Кадры 6-10: подъем вверх (Y убывает с 700 до 500)
         y_coords = [500, 550, 610, 660, 700, 650, 600, 550, 510, 480]
         for fid, y in enumerate(y_coords):
             tracker.update(frame_id=fid, detection_xy=(float(500 + fid * 10), float(y)))
@@ -152,7 +151,7 @@ class TestBallTracker:
         assert len(bounces) >= 1
 
 
-# ── Detectors ─────────────────────────────────────────────────────────────────
+# ── Детекторы (Detectors) ─────────────────────────────────────────────────────
 
 
 class TestDetectors:
@@ -164,24 +163,24 @@ class TestDetectors:
         detector = MockBallDetector(markup)
         dummy_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
 
-        # Visible frame
+        # Видимый кадр
         dets10 = detector.detect(dummy_frame, frame_id=10)
         assert len(dets10) == 1
         assert dets10[0].x == 500.0
         assert dets10[0].y == 600.0
 
-        # Invisible frame
+        # Невидимый кадр
         dets11 = detector.detect(dummy_frame, frame_id=11)
         assert len(dets11) == 0
 
-        # Unindexed frame
+        # Неразмеченный кадр
         dets99 = detector.detect(dummy_frame, frame_id=99)
         assert len(dets99) == 0
 
     def test_color_motion_detector(self):
         detector = ColorMotionBallDetector(ball_color="white", min_radius=3, max_radius=10)
         frame = np.full((300, 300, 3), 30, dtype=np.uint8)
-        # Draw a bright white circular ball at (150, 150)
+        # Рисуем яркий белый круглый мяч в (150, 150)
         import cv2
         cv2.circle(frame, (150, 150), 6, (255, 255, 255), -1)
 
@@ -191,7 +190,7 @@ class TestDetectors:
         assert abs(dets[0].y - 150.0) <= 2.0
 
     def test_yolo_detector_import_error(self, monkeypatch):
-        # Force ImportError for ultralytics if tested
+        # Принудительная ошибка импорта для ultralytics при тестировании
         import sys
         monkeypatch.setitem(sys.modules, "ultralytics", None)
 
@@ -199,7 +198,7 @@ class TestDetectors:
             YOLOv8BallDetector("non_existent.pt")
 
 
-# ── Dataset Generator ─────────────────────────────────────────────────────────
+# ── Генератор датасета (Dataset Generator) ─────────────────────────────────────
 
 
 class TestDatasetGenerator:
@@ -227,7 +226,7 @@ class TestDatasetGenerator:
         assert res["visible_balls"] == 4
         assert Path(res["dataset_yaml"]).exists()
 
-        # Check a visible label file
+        # Проверка файла разметки с видимым мячом
         label_file = out_dir / "labels" / "train" / "frame_000001.txt"
         if not label_file.exists():
             label_file = out_dir / "labels" / "val" / "frame_000001.txt"

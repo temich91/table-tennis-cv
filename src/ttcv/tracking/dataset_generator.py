@@ -1,9 +1,9 @@
-"""Dataset utilities for YOLO training and synthetic rally generation.
+"""Утилиты подготовки датасета для обучения YOLO и генерации синтетических розыгрышей.
 
-Functions:
-  - convert_markup_to_yolo_format: Converts ball_markup.json to YOLO format label files.
-  - generate_synthetic_rally: Generates realistic synthetic table tennis video frames
-    with projectile physics, motion blur, and ground truth annotations.
+Функции:
+  - convert_markup_to_yolo_format: Преобразует ball_markup.json в файлы разметки формата YOLO.
+  - generate_synthetic_rally: Генерирует реалистичные синтетические видеокадры настольного тенниса
+    с баллистической физикой полета, размытием в движении (motion blur) и эталонной разметкой.
 """
 
 from __future__ import annotations
@@ -22,21 +22,21 @@ def convert_markup_to_yolo_format(
     bbox_size_px: int = 24,
     img_size: tuple[int, int] = (1920, 1080),
 ) -> dict:
-    """Convert ball_markup.json into standard YOLO annotation files.
+    """Конвертация ball_markup.json в стандартные файлы аннотаций YOLO.
 
-    For each annotated frame:
-      - Visible ball: outputs "0 x_center y_center width height" (normalized [0, 1]).
-      - Invisible ball: outputs empty label file (negative background sample).
+    Для каждого размеченного кадра:
+      - Видимый мяч: записывает строку "0 x_center y_center width height" (нормализованные [0, 1]).
+      - Невидимый мяч: создает пустой файл разметки (отрицательный фоновый образец).
 
-    Args:
-        ball_markup_path: Path to ball_markup.json.
-        output_dir: Directory where labels/ and dataset.yaml will be created.
-        val_ratio: Proportion of frames reserved for validation (e.g. 0.2 = 20%).
-        bbox_size_px: Bounding box side length in pixels around ball center.
-        img_size: (width, height) in pixels.
+    Аргументы:
+        ball_markup_path: Путь к ball_markup.json.
+        output_dir: Директория, где будут созданы папки labels/ и файл dataset.yaml.
+        val_ratio: Доля кадров, выделяемая под валидацию (например, 0.2 = 20%).
+        bbox_size_px: Длина стороны квадратной ограничивающей рамки в пикселях вокруг центра мяча.
+        img_size: (ширина, высота) в пикселях.
 
-    Returns:
-        Summary dictionary with counts of train and val labels generated.
+    Возвращает:
+        Словарь со статистикой количества сгенерированных меток train и val.
     """
     markup_path = Path(ball_markup_path)
     out_path = Path(output_dir)
@@ -76,7 +76,7 @@ def convert_markup_to_yolo_format(
             label_file.write_text(line, encoding="utf-8")
             visible_count += 1
         else:
-            # Empty file = background image without ball
+            # Пустой файл = фоновое изображение без мяча
             label_file.write_text("", encoding="utf-8")
 
         if is_val:
@@ -84,8 +84,8 @@ def convert_markup_to_yolo_format(
         else:
             train_count += 1
 
-    # Generate dataset.yaml
-    yaml_content = f"""# Ultralytics YOLOv8 Table Tennis Ball Dataset
+    # Генерация dataset.yaml
+    yaml_content = f"""# Датасет мячей для настольного тенниса Ultralytics YOLOv8
 path: {out_path.resolve().as_posix()}
 train: images/train
 val: images/val
@@ -112,29 +112,29 @@ def generate_synthetic_rally(
     img_size: tuple[int, int] = (1280, 720),
     fps: float = 60.0,
 ) -> dict:
-    """Generate a realistic synthetic video clip of a table tennis rally.
+    """Генерация реалистичного синтетического видеоклипа розыгрыша в настольном теннисе.
 
-    Simulates:
-      - Perspective side-view table tennis table with white border and net.
-      - Parabolic projectile ball trajectory with gravity.
-      - Bounces on both player halves.
-      - Motion blur along velocity direction.
+    Симулирует:
+      - Стол для настольного тенниса в перспективе сбоку с белой окантовкой и сеткой.
+      - Параболическую траекторию полета мяча с учетом гравитации.
+      - Отскоки на обеих половинах игроков.
+      - Размытие в движении (motion blur) вдоль вектора скорости.
 
-    Args:
-        output_video_path: Optional path to save MP4 video.
-        output_frames_dir: Optional path to save individual PNG/JPEG frames.
-        num_frames: Number of frames to synthesize.
-        img_size: (width, height) of the video.
-        fps: Frames per second.
+    Аргументы:
+        output_video_path: Опциональный путь для сохранения видео в MP4.
+        output_frames_dir: Опциональный путь для сохранения отдельных кадров PNG/JPEG.
+        num_frames: Количество кадров для синтеза.
+        img_size: (ширина, высота) видео.
+        fps: Частота кадров в секунду.
 
-    Returns:
-        Dictionary with ground truth ball positions and paths.
+    Возвращает:
+        Словарь с эталонными положениями мяча и путями к файлам.
     """
     w, h = img_size
     scale_x = w / 1920.0
     scale_y = h / 1080.0
 
-    # Table corners in synthetic resolution (matching TTNet perspective)
+    # Углы стола в синтетическом разрешении (соответствуют перспективе TTNet)
     c_tl = (int(528 * scale_x), int(608 * scale_y))
     c_tr = (int(1260 * scale_x), int(608 * scale_y))
     c_br = (int(1416 * scale_x), int(776 * scale_y))
@@ -155,11 +155,11 @@ def generate_synthetic_rally(
     if output_frames_dir is not None:
         Path(output_frames_dir).mkdir(parents=True, exist_ok=True)
 
-    # Ball physical trajectory parameters
-    # Ball rallies back and forth across net
+    # Параметры физической траектории мяча
+    # Мяч перелетает туда и обратно через сетку
     ball_markup: dict[str, dict[str, int]] = {}
 
-    # Initial rally state
+    # Начальное состояние розыгрыша
     ball_x = float(c_bl[0] + 50)
     ball_y = float(table_surface_y - 120)
     vx = 7.5 * (w / 1280.0)
@@ -167,41 +167,41 @@ def generate_synthetic_rally(
     gravity = 0.35 * (h / 720.0)
 
     for fid in range(num_frames):
-        # Physics update
+        # Обновление физики
         ball_x += vx
         ball_y += vy
         vy += gravity
 
-        # Bounce on table surface
+        # Отскок от поверхности стола
         if ball_y >= table_surface_y:
             ball_y = float(table_surface_y)
-            vy = -abs(vy) * 0.88  # Coefficient of restitution ~0.88
-            # If hit near right endline, return to left
+            vy = -abs(vy) * 0.88  # Коэффициент восстановления ~0.88
+            # При ударе возле правого края возвращаем влево
             if ball_x > c_tr[0]:
                 vx = -abs(vx)
             elif ball_x < c_tl[0]:
                 vx = abs(vx)
 
-        # Reverse if past court borders
+        # Разворот при вылете за границы площадки
         if ball_x > w - 100:
             vx = -abs(vx)
         elif ball_x < 100:
             vx = abs(vx)
 
-        # ── Render Frame ─────────────────────────────────────────────────────
+        # ── Отрисовка кадра ──────────────────────────────────────────────────
         frame = np.full((h, w, 3), (45, 50, 55), dtype=np.uint8)
 
-        # Stadium floor
+        # Пол зала
         cv2.rectangle(frame, (0, int(h * 0.55)), (w, h), (35, 38, 42), -1)
 
-        # Table surface
+        # Поверхность стола
         cv2.fillPoly(frame, [table_poly], (115, 65, 25))
-        # White perimeter line
+        # Белая линия периметра
         cv2.polylines(frame, [table_poly], isClosed=True, color=(240, 240, 240), thickness=2)
-        # Net
+        # Сетка
         cv2.line(frame, net_top, net_bot, (230, 230, 230), 2)
 
-        # Draw ball with motion blur streak
+        # Отрисовка мяча со шлейфом размытия в движении
         speed = np.hypot(vx, vy)
         bx, by = int(ball_x), int(ball_y)
         blur_len = int(min(20, speed * 1.5))
@@ -209,10 +209,10 @@ def generate_synthetic_rally(
             blur_start = (int(bx - vx * 0.8), int(by - vy * 0.8))
             cv2.line(frame, blur_start, (bx, by), (220, 220, 220), 4)
 
-        # Crisp ball circle
+        # Четкий круг мяча
         cv2.circle(frame, (bx, by), 5, (255, 255, 255), -1)
 
-        # Record ground truth
+        # Запись эталонных данных
         ball_markup[str(fid)] = {"x": bx, "y": by}
 
         if writer is not None:

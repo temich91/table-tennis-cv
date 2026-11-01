@@ -1,7 +1,8 @@
-"""Geometry sub-package for table tennis computer vision.
+"""Подпакет геометрии для компьютерного зрения в настольном теннисе.
 
-Contains table dimensions (ITTF standards), corner detection from segmentation masks,
-perspective transformation (homography) to Bird's Eye View (BEV), and 2D court visualization.
+Содержит спецификации размеров стола (стандарты ITTF), детекцию углов по маскам
+сегментации, перспективное преобразование (гомографию) в вид сверху (Bird's Eye View / BEV)
+и модуль визуализации 2D стола.
 """
 
 from ttcv.geometry.homography import (

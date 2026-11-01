@@ -1,10 +1,10 @@
-"""BallTracker: High-level table tennis ball tracker.
+"""BallTracker: Высокоуровневый трекер мяча для настольного тенниса.
 
-Features:
-  - Integrates BallKalmanFilter for trajectory smoothing and missing frame filling.
-  - Computes real-time metric speed in km/h using TableHomography and camera FPS.
-  - Maintains trailing trajectory queue for drawing motion comet tails.
-  - Performs trajectory-based bounce detection (vertical velocity sign inversion).
+Возможности:
+  - Интеграция BallKalmanFilter для сглаживания траектории и заполнения пропущенных кадров.
+  - Расчет метрической скорости в реальном времени в км/ч с использованием TableHomography и FPS камеры.
+  - Ведение очереди последних точек траектории для отрисовки кометного шлейфа мяча.
+  - Детекция отскоков мяча на основе инверсии знака вертикальной скорости траектории.
 """
 
 from __future__ import annotations
@@ -23,20 +23,20 @@ if TYPE_CHECKING:
 
 @dataclass
 class TrackPoint:
-    """A tracked ball position at a specific frame.
+    """Отслеженное положение мяча на конкретном кадре.
 
-    Attributes:
-        frame_id: Frame number.
-        x: Estimated horizontal coordinate in camera pixels.
-        y: Estimated vertical coordinate in camera pixels.
-        vx: Horizontal velocity (px/frame).
-        vy: Vertical velocity (px/frame).
-        speed_px: Euclidean speed (px/frame).
-        speed_kmh: Metric speed in km/h (if homography & fps available).
-        is_predicted: True if filled by Kalman prediction during occlusion/motion blur.
-        confidence: Detection confidence (1.0 for manual markup / ground truth).
-        table_x_mm: Projected X coordinate on table in mm (if homography available).
-        table_y_mm: Projected Y coordinate on table in mm (if homography available).
+    Атрибуты:
+        frame_id: Номер кадра.
+        x: Оцененная горизонтальная координата в пикселях камеры.
+        y: Оцененная вертикальная координата в пикселях камеры.
+        vx: Горизонтальная скорость (пикс/кадр).
+        vy: Вертикальная скорость (пикс/кадр).
+        speed_px: Евклидова скорость (пикс/кадр).
+        speed_kmh: Метрическая скорость в км/ч (при наличии гомографии и FPS).
+        is_predicted: True, если положение восстановлено предсказанием Калмана при перекрытии/размытии.
+        confidence: Уверенность детектора (1.0 для ручной разметки / эталона).
+        table_x_mm: Спроецированная координата X на столе в мм (при наличии гомографии).
+        table_y_mm: Спроецированная координата Y на столе в мм (при наличии гомографии).
     """
 
     frame_id: int
@@ -63,10 +63,10 @@ class TrackPoint:
 
 
 class BallTracker:
-    """Tracks a table tennis ball across video frames with Kalman filtering.
+    """Отслеживание мяча для настольного тенниса на видеокадрах с фильтрацией Калмана.
 
-    Fills short occlusion / motion-blur gaps (up to `max_lost_frames`),
-    computes physical speed via homography, and detects table bounces.
+    Заполняет короткие промежутки отсутствия детекций (до `max_lost_frames`),
+    вычисляет физическую скорость через гомографию и обнаруживает отскоки от стола.
     """
 
     def __init__(
@@ -76,13 +76,13 @@ class BallTracker:
         max_lost_frames: int = 15,
         max_tail_length: int = 30,
     ) -> None:
-        """Initialize the BallTracker.
+        """Инициализация BallTracker.
 
-        Args:
-            homography: Optional TableHomography instance for metric projections.
-            fps: Video frames per second (TTNet dataset uses 120 fps; standard video 30/60).
-            max_lost_frames: Max consecutive missing frames to predict before resetting.
-            max_tail_length: Number of recent points to keep in memory for the comet tail.
+        Аргументы:
+            homography: Опциональный экземпляр TableHomography для метрических проекций.
+            fps: Частота кадров видео (в TTNet используется 120 fps; стандартное видео 30/60).
+            max_lost_frames: Максимальное число подряд пропущенных кадров для предсказания перед сбросом.
+            max_tail_length: Количество последних точек в памяти для кометного шлейфа.
         """
         self.homography = homography
         self.fps = fps
@@ -98,7 +98,7 @@ class BallTracker:
         self._predicted_count = 0
 
     def reset(self) -> None:
-        """Reset the tracker state."""
+        """Сброс состояния трекера."""
         self.kalman.reset()
         self.lost_count = 0
         self.history.clear()
@@ -112,15 +112,15 @@ class BallTracker:
         detection_xy: tuple[float, float] | None = None,
         confidence: float = 1.0,
     ) -> TrackPoint | None:
-        """Process a new frame with an optional ball detection.
+        """Обработка нового кадра с опциональной детекцией мяча.
 
-        Args:
-            frame_id: Current video frame index.
-            detection_xy: Detected (x, y) coordinates, or None / (-1, -1) if not detected.
-            confidence: Detector confidence score [0.0, 1.0].
+        Аргументы:
+            frame_id: Текущий индекс кадра видео.
+            detection_xy: Обнаруженные координаты (x, y) или None / (-1, -1), если мяч не обнаружен.
+            confidence: Оценка уверенности детектора [0.0, 1.0].
 
-        Returns:
-            :class:`TrackPoint` with smoothed position and speed, or None if lost.
+        Возвращает:
+            Экземпляр :class:`TrackPoint` со сглаженным положением и скоростью, либо None при потере трека.
         """
         has_detection = (
             detection_xy is not None
@@ -128,17 +128,17 @@ class BallTracker:
             and detection_xy[1] >= 0
         )
 
-        # 1. Prediction step
+        # 1. Шаг предсказания
         pred_x, pred_y = self.kalman.predict()
 
         if has_detection:
-            # 2. Measurement update
+            # 2. Обновление по измерениям
             est_x, est_y = self.kalman.update(detection_xy)
             self.lost_count = 0
             is_predicted = False
             self._detected_count += 1
         else:
-            # Missing detection: check if within allowable prediction horizon
+            # Пропуск детекции: проверяем, укладываемся ли в допустимый горизонт предсказания
             if self.kalman.initialized and self.lost_count < self.max_lost_frames:
                 est_x, est_y = pred_x, pred_y
                 self.lost_count += 1
@@ -148,11 +148,11 @@ class BallTracker:
                 self.lost_count += 1
                 return None
 
-        # 3. Extract velocity and speed
+        # 3. Извлечение скоростей
         vx, vy = self.kalman.velocity
         speed_px = self.kalman.speed_px
 
-        # 4. Metric projection & real speed in km/h
+        # 4. Метрическая проекция и реальная скорость в км/ч
         speed_kmh: float | None = None
         table_x_mm: float | None = None
         table_y_mm: float | None = None
@@ -162,7 +162,7 @@ class BallTracker:
             table_x_mm = float(pt_table[0])
             table_y_mm = float(pt_table[1])
 
-            # Calculate metric speed from recent history
+            # Расчет метрической скорости по недавней истории
             if len(self.history) >= 1:
                 prev = self.history[-1]
                 if prev.table_x_mm is not None and prev.table_y_mm is not None:
@@ -174,7 +174,7 @@ class BallTracker:
                         )
                     )
                     v_mps = dist_m / dt_sec
-                    # Filter out non-physical teleports (> 150 km/h)
+                    # Фильтрация нефизичных скачков (> 150 км/ч)
                     speed_kmh = min(150.0, v_mps * 3.6)
 
         point = TrackPoint(
@@ -195,16 +195,16 @@ class BallTracker:
         self.tail.append((est_x, est_y))
         return point
 
-    # ── Trajectory & Bounce Analytics ─────────────────────────────────────────
+    # ── Аналитика траектории и отскоков ───────────────────────────────────────
 
     def get_trajectory_array(self) -> np.ndarray:
-        """Return array of shape (N, 3) with [frame_id, x, y] for all tracked frames."""
+        """Возвращает массив формы (N, 3) с [frame_id, x, y] для всех отслеженных кадров."""
         if not self.history:
             return np.empty((0, 3), dtype=np.float32)
         return np.array([[p.frame_id, p.x, p.y] for p in self.history], dtype=np.float32)
 
     def get_recent_tail(self) -> list[tuple[float, float]]:
-        """Return the recent (x, y) points in the comet tail."""
+        """Возвращает список недавних точек (x, y) кометного шлейфа."""
         return list(self.tail)
 
     def detect_bounces(
@@ -212,18 +212,18 @@ class BallTracker:
         min_vy_change: float = 4.0,
         min_frame_gap: int = 15,
     ) -> list[int]:
-        """Detect bounce frames where vertical velocity flips from downward to upward.
+        """Детекция кадров отскока, где вертикальная скорость меняет знак с движения вниз на движение вверх.
 
-        In camera coordinates, Y increases downward.
-        Before bounce: ball falls downwards -> vy > 0.
-        After bounce: ball rises upwards -> vy < 0.
+        В координатах камеры ось Y направлена вниз.
+        До отскока: мяч падает вниз -> vy > 0.
+        После отскока: мяч поднимается вверх -> vy < 0.
 
-        Args:
-            min_vy_change: Minimum jump in vertical velocity (vy_prev - vy_next).
-            min_frame_gap: Minimum frames between consecutive bounces.
+        Аргументы:
+            min_vy_change: Минимальный скачок вертикальной скорости (vy_prev - vy_next).
+            min_frame_gap: Минимальное количество кадров между последовательными отскоками.
 
-        Returns:
-            List of frame_ids where bounces occurred.
+        Возвращает:
+            Список frame_id, на которых произошли отскоки.
         """
         if len(self.history) < 5:
             return []
@@ -236,7 +236,7 @@ class BallTracker:
             curr_pt = self.history[i]
             next_pt = self.history[i + 1]
 
-            # Downward before, upward after
+            # Движение вниз до точки, движение вверх после
             if prev_pt.vy > 0 and next_pt.vy < 0:
                 vy_jump = prev_pt.vy - next_pt.vy
                 if vy_jump >= min_vy_change:
@@ -248,7 +248,7 @@ class BallTracker:
 
     @property
     def stats(self) -> dict:
-        """Return tracking performance summary."""
+        """Возвращает сводку эффективности трекинга."""
         total = len(self.history)
         speeds = [p.speed_kmh for p in self.history if p.speed_kmh is not None]
         return {

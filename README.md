@@ -1,170 +1,170 @@
 # PingPongVision 🏓
 
-**Ball Tracking & Table Bounce Analytics** — Full Computer Vision Pipeline for Table Tennis.
+**Отслеживание мяча и аналитика отскоков от стола** — полный пайплайн компьютерного зрения (Computer Vision) для настольного тенниса.
 
-## Project Architecture
+## Архитектура проекта
 
 ```
-[Video Stream / Dataset]
+[Видеопоток / Датасет]
    │
-   ├──> 1. Data Pipeline & EDA          ← Step 1 (Completed)
-   │       (TTNet dataset loaders, trajectory & visibility EDA)
+   ├──> 1. Пайплайн данных и EDA        ← Шаг 1 (Выполнен)
+   │       (Загрузчики датасета TTNet, EDA траектории и видимости)
    │
-   ├──> 2. Table Detection & Homography ← Step 2 (Completed)
-   │       (ITTF dimensions, auto-corner extraction, Bird's Eye View)
+   ├──> 2. Детекция стола и гомография  ← Шаг 2 (Выполнен)
+   │       (Стандарты ITTF, авто-поиск углов, вид сверху / Bird's Eye View)
    │
-   ├──> 3. Ball Detection & Tracking    ← Step 3 (Completed)
-   │       (Kalman Filter, motion blur filling, speed in km/h, YOLO/CV)
+   ├──> 3. Детекция и трекинг мяча      ← Шаг 3 (Выполнен)
+   │       (Фильтр Калмана, сглаживание размытия, скорость в км/ч, YOLO/CV)
    │
-   └──> 4. Analytics & Web Dashboard    ← Step 4 (Completed)
-           (Interactive Streamlit UI, 2D Heatmaps, Match Reports)
+   └──> 4. Аналитика и веб-дашборд      ← Шаг 4 (Выполнен)
+           (Интерактивный UI на Streamlit, 2D тепловые карты, отчеты о матче)
 ```
 
-## Dataset
+## Датасет
 
-**Source:** [lab.osai.ai](https://lab.osai.ai/) — TTNet academic dataset.
+**Источник:** [lab.osai.ai](https://lab.osai.ai/) — академический датасет TTNet.
 
-Each game clip contains:
-| File | Description |
+Каждый игровой клип содержит:
+| Файл | Описание |
 |------|-------------|
-| `ball_markup.json` | `{frame_id: {x, y}}` — ball center in pixels; `(-1,-1)` = not visible |
-| `events_markup.json` | `{frame_id: event}` — `"bounce"`, `"net"`, `"empty_event"` |
-| `segmentation_masks/{frame_id}.png` | RGB 320×128 semantic segmentation (Red = table surface) |
+| `ball_markup.json` | `{frame_id: {x, y}}` — центр мяча в пикселях; `(-1,-1)` = мяч не виден |
+| `events_markup.json` | `{frame_id: event}` — `"bounce"` (отскок), `"net"` (сетка), `"empty_event"` (пустое событие) |
+| `segmentation_masks/{frame_id}.png` | RGB 320×128 семантическая сегментация (красный цвет = поверхность стола) |
 
-Ball coordinates are relative to **1920×1080** full-HD frames.  
-Segmentation masks are downscaled to **320×128**.
+Координаты мяча приведены относительно Full-HD кадров **1920×1080**.  
+Маски сегментации масштабированы до **320×128**.
 
-## Setup & Installation
+## Установка и настройка
 
 ```bash
-# 1. Clone & create virtual environment
+# 1. Клонирование и создание виртуального окружения
 python -m venv .venv
 .venv\Scripts\activate       # Windows
 # source .venv/bin/activate  # Linux/macOS
 
-# 2. Install project with development dependencies
+# 2. Установка проекта с зависимостями для разработки
 pip install -e ".[dev]"
 
-# Optional: Install Ultralytics for custom YOLO training
+# Опционально: установка Ultralytics для обучения собственных моделей YOLO
 pip install -e ".[models]"
 ```
 
-## Project Structure
+## Структура проекта
 
 ```
 table-tennis-cv/
-├── app.py                    # Streamlit Dashboard launcher
+├── app.py                    # Точка входа для запуска дашборда Streamlit
 ├── data/
-│   ├── raw/                  # Raw dataset files (from lab.osai.ai)
+│   ├── raw/                  # Исходные файлы датасета (из lab.osai.ai)
 │   │   ├── ball_markup.json
 │   │   ├── events_markup.json
 │   │   └── segmentation_masks/
-│   └── processed/            # Intermediate artefacts / YOLO dataset
+│   └── processed/            # Промежуточные артефакты / датасет YOLO
 ├── src/
 │   └── ttcv/
 │       ├── __init__.py
-│       ├── app.py            # Main Streamlit web application
-│       ├── analytics/        # Step 4: Game metrics & match reports
+│       ├── app.py            # Основное веб-приложение на Streamlit
+│       ├── analytics/        # Шаг 4: Игровые метрики и отчеты о матче
 │       │   ├── __init__.py
 │       │   ├── metrics.py    # RallyAnalyzer, RallyMetrics, ShotInfo
-│       │   └── report.py     # Markdown & JSON match report generators
-│       ├── data/             # Step 1: Data loaders & EDA
+│       │   └── report.py     # Генераторы отчетов о матче в Markdown и JSON
+│       ├── data/             # Шаг 1: Загрузчики данных и EDA
 │       │   ├── __init__.py
-│       │   ├── dataset.py    # TTNetDataset — core data loader
-│       │   └── eda.py        # Exploratory analysis helpers
-│       ├── geometry/         # Step 2: ITTF standards & homography
+│       │   ├── dataset.py    # TTNetDataset — базовый загрузчик данных
+│       │   └── eda.py        # Вспомогательные функции для анализа данных
+│       ├── geometry/         # Шаг 2: Стандарты ITTF и гомография
 │       │   ├── __init__.py
-│       │   ├── table.py      # ITTF dimensions, zones, and coordinates
-│       │   ├── homography.py # Table corner detection & TableHomography engine
-│       │   └── visualizer.py # 2D BEV table drawing & bounce heatmaps
-│       └── tracking/         # Step 3: Ball tracking & detectors
+│       │   ├── table.py      # Размеры ITTF, зоны стола и координаты
+│       │   ├── homography.py # Детекция углов стола и модуль TableHomography
+│       │   └── visualizer.py # Отрисовка 2D стола (BEV) и тепловых карт отскоков
+│       └── tracking/         # Шаг 3: Отслеживание мяча и детекторы
 │           ├── __init__.py
-│           ├── kalman.py     # 6-state constant acceleration Kalman filter
-│           ├── tracker.py    # BallTracker (interpolation, speed, comet tail)
-│           ├── detector.py   # YOLOv8, ColorMotion, and Mock detectors
-│           └── dataset_generator.py # YOLO converter & synthetic rally generator
+│           ├── kalman.py     # 6-параметрический фильтр Калмана постоянного ускорения
+│           ├── tracker.py    # BallTracker (интерполяция, скорость, шлейф мяча)
+│           ├── detector.py   # Детекторы: YOLOv8, ColorMotion и Mock
+│           └── dataset_generator.py # Конвертер в YOLO и генератор синтетических розыгрышей
 ├── scripts/
-│   ├── run_eda.py            # Run EDA on dataset and save plots
-│   ├── run_homography.py     # Run table detection, BEV projection & heatmap
-│   ├── infer.py              # Run live tracking & 2D mini-map inference
-│   ├── prepare_yolo_dataset.py # Convert ball_markup.json to YOLO format
-│   └── train_yolo.py         # Launch YOLOv8 training with Ultralytics
+│   ├── run_eda.py            # Запуск EDA по датасету и сохранение графиков
+│   ├── run_homography.py     # Детекция стола, проекция BEV и тепловая карта
+│   ├── infer.py              # Запуск инференса трекинга и 2D мини-карты на видео
+│   ├── prepare_yolo_dataset.py # Конвертация ball_markup.json в формат YOLO
+│   └── train_yolo.py         # Запуск обучения YOLOv8 через Ultralytics
 ├── tests/
-│   ├── test_dataset.py       # 25 unit tests for data structures
-│   ├── test_eda.py           # 6 smoke tests for EDA visualizations
-│   ├── test_geometry.py      # 29 tests for table geometry & homography
-│   ├── test_tracking.py      # 16 tests for Kalman filter, tracker & detectors
-│   └── test_analytics.py     # 6 tests for rally analytics & match reporting
-├── outputs/                  # Generated plots, videos and reports (gitignored)
+│   ├── test_dataset.py       # 25 модульных тестов для структур данных
+│   ├── test_eda.py           # 6 смоук-тестов для визуализаций EDA
+│   ├── test_geometry.py      # 29 тестов геометрии стола и гомографии
+│   ├── test_tracking.py      # 16 тестов для фильтра Калмана, трекера и детекторов
+│   └── test_analytics.py     # 6 тестов для аналитики розыгрышей и отчетов
+├── outputs/                  # Сгенерированные графики, видео и отчеты (.gitignore)
 ├── pyproject.toml
 └── README.md
 ```
 
-## Quick Start & Usage
+## Быстрый старт и примеры использования
 
-### 1. Interactive Streamlit Dashboard (Step 4)
-Launch the interactive web application in your browser:
+### 1. Интерактивный веб-дашборд Streamlit (Шаг 4)
+Запустите интерактивное веб-приложение в браузере:
 ```bash
 streamlit run app.py
 ```
-**Features:**
-- Interactive court analytics with **Bird's Eye View bounce density heatmaps**.
-- Instant toggle between **Real TTNet match data**, **Synthetic rally simulation**, and **Custom video upload**.
-- Speed velocity profile (km/h) and vertical trajectory curves.
-- Video tracking with **comet tail** and live **2D mini-map** overlay in the corner.
-- Automated executive match report export (Markdown & JSON).
+**Возможности:**
+- Интерактивная аналитика стола с **тепловыми картами плотности отскоков (вид сверху / Bird's Eye View)**.
+- Быстрое переключение между **реальными данными матча TTNet**, **физической симуляцией розыгрыша** и **загрузкой собственного видео**.
+- Профиль скорости мяча (км/ч) и графики вертикальной траектории.
+- Видеотрекинг с **эффектом кометного шлейфа** и живой **2D мини-картой** в углу экрана.
+- Автоматический экспорт итогового отчета о матче (в форматах Markdown и JSON).
 
 ---
 
-### 2. Live Video Tracking & Inference (Step 3)
+### 2. Инференс и трекинг на видео (Шаг 3)
 ```bash
-# A. Synthetic rally simulation (generates video with live BEV mini-map and comet tail):
+# A. Физическая симуляция розыгрыша (генерирует видео с живой BEV мини-картой и шлейфом мяча):
 python scripts/infer.py --synthetic --max-frames 120 --output outputs/tracking/synthetic_tracked.mp4
 
-# B. Replay real dataset ground truth with Kalman tracking & speed calculation:
+# B. Воспроизведение разметки датасета с фильтрацией Калмана и расчетом скорости:
 python scripts/infer.py --replay-markup data/raw/ball_markup.json --start-frame 1298 --max-frames 120 --output outputs/tracking/real_markup_tracked.mp4
 
-# C. Custom video with trained YOLOv8 weights:
+# C. Пользовательское видео с весами обученной модели YOLOv8:
 python scripts/infer.py --video input.mp4 --weights best.pt --mask data/raw/segmentation_masks/1278.png --output outputs/tracking/match_tracked.mp4
 ```
 
 ---
 
-### 3. Table Detection & Bird's Eye View Homography (Step 2)
+### 3. Детекция стола и гомография вида сверху (Шаг 2)
 ```bash
 python scripts/run_homography.py --mask data/raw/segmentation_masks/1278.png --output-dir outputs/homography
 ```
-Extracts corners from segmentation mask, computes homography matrix, and projects all bounce events onto 2D ITTF table coordinates.
+Извлекает углы из маски сегментации, вычисляет матрицу гомографии и проецирует все события отскоков в 2D-координаты стола по стандарту ITTF.
 
 ---
 
-### 4. Exploratory Data Analysis (Step 1)
+### 4. Разведочный анализ данных (EDA) (Шаг 1)
 ```bash
 python scripts/run_eda.py data/raw --output-dir outputs/eda
 ```
 
 ---
 
-### 5. Training YOLOv8 Ball Detector
+### 5. Обучение детектора мяча YOLOv8
 ```bash
-# 1. Convert dataset to YOLO format:
+# 1. Конвертация датасета в формат YOLO:
 python scripts/prepare_yolo_dataset.py data/raw/ball_markup.json --output-dir data/processed/yolo_dataset
 
-# 2. Train YOLOv8-nano on ball dataset:
+# 2. Обучение YOLOv8-nano на датасете мячей:
 python scripts/train_yolo.py --data data/processed/yolo_dataset/dataset.yaml --epochs 50 --imgsz 1280
 ```
 
 ---
 
-### 6. Running Tests
+### 6. Запуск тестов
 ```bash
 python -m pytest tests/ -v
 # 82 passed in ~5s
 ```
 
-## Roadmap
+## План разработки (Roadmap)
 
-- [x] **Step 1** — Data Pipeline & EDA
-- [x] **Step 2** — Table Detection & Homography (BEV)
-- [x] **Step 3** — Ball Detection & Tracking (Kalman Filter + YOLO / Classical Detectors)
-- [x] **Step 4** — Analytics Dashboard (Streamlit interactive demo)
+- [x] **Шаг 1** — Пайплайн данных и EDA
+- [x] **Шаг 2** — Детекция стола и гомография (BEV)
+- [x] **Шаг 3** — Детекция и трекинг мяча (фильтр Калмана + YOLO / классические детекторы)
+- [x] **Шаг 4** — Аналитический дашборд (интерактивное демо на Streamlit)

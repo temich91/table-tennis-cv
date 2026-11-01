@@ -1,4 +1,4 @@
-"""Tests for ttcv.data.eda — smoke tests (check functions run without errors)."""
+"""Тесты для ttcv.data.eda — смоук-тесты (проверка вызова функций без ошибок)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from ttcv.data.eda import (
 @pytest.fixture
 def clip(tmp_path: Path):
     ball_data = {str(i): {"x": i * 10, "y": 500 + i} for i in range(1, 30)}
-    ball_data["15"] = {"x": -1, "y": -1}  # invisible gap
+    ball_data["15"] = {"x": -1, "y": -1}  # пропуск видимости
     ball_data["16"] = {"x": -1, "y": -1}
     events_data = {
         "5": EVENT_EMPTY,

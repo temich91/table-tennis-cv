@@ -1,11 +1,11 @@
-"""Ball detector interfaces and implementations.
+"""Интерфейсы и реализации детекторов мяча.
 
-Detectors:
-  - BaseBallDetector: Abstract base class for ball detectors.
-  - BallDetection: Dataclass storing bounding box, center, and confidence.
-  - MockBallDetector: Replays ground-truth ball markup (with optional noise / dropouts).
-  - ColorMotionBallDetector: Fast classical CV detector using HSV color & circularity filtering.
-  - YOLOv8BallDetector: Ultralytics YOLOv8 / YOLOv11 wrapper for trained weights.
+Детекторы:
+  - BaseBallDetector: Абстрактный базовый класс для детекторов мяча.
+  - BallDetection: Датакласс для хранения ограничивающей рамки (bounding box), центра и уверенности.
+  - MockBallDetector: Воспроизводит эталонную разметку мяча (с опциональным шумом / пропусками).
+  - ColorMotionBallDetector: Быстрый классический CV-детектор по цвету HSV и фильтрации округлости.
+  - YOLOv8BallDetector: Обертка для моделей Ultralytics YOLOv8 / YOLOv11 с обученными весами.
 """
 
 from __future__ import annotations
@@ -21,14 +21,14 @@ import numpy as np
 
 @dataclass
 class BallDetection:
-    """A detected ball candidate in a frame.
+    """Обнаруженный кандидат на мяч в кадре.
 
-    Attributes:
-        x: Center horizontal pixel coordinate.
-        y: Center vertical pixel coordinate.
-        bbox: Bounding box tuple (x1, y1, x2, y2).
-        confidence: Detection confidence score [0.0, 1.0].
-        class_name: Label name (default: "ball").
+    Атрибуты:
+        x: Горизонтальная координата центра в пикселях.
+        y: Вертикальная координата центра в пикселях.
+        bbox: Кортеж ограничивающей рамки (x1, y1, x2, y2).
+        confidence: Оценка уверенности детекции [0.0, 1.0].
+        class_name: Имя класса (по умолчанию: "ball").
     """
 
     x: float
@@ -51,26 +51,26 @@ class BallDetection:
 
 
 class BaseBallDetector(ABC):
-    """Abstract base class for all ball detection models."""
+    """Абстрактный базовый класс для всех моделей детекции мяча."""
 
     @abstractmethod
     def detect(self, frame: np.ndarray, frame_id: int | None = None) -> list[BallDetection]:
-        """Detect the ball in a single image/video frame.
+        """Детекция мяча на отдельном изображении / кадре видео.
 
-        Args:
-            frame: (H, W, 3) BGR or RGB image.
-            frame_id: Optional frame index for sequence/stateful detectors.
+        Аргументы:
+            frame: Изображение BGR или RGB формы (H, W, 3).
+            frame_id: Опциональный индекс кадра для последовательных детекторов с состоянием.
 
-        Returns:
-            List of detected :class:`BallDetection` instances, sorted by confidence desc.
+        Возвращает:
+            Список обнаруженных экземпляров :class:`BallDetection`, отсортированный по убыванию уверенности.
         """
         pass
 
 
 class MockBallDetector(BaseBallDetector):
-    """Detector that replays ground-truth annotations with optional simulated noise.
+    """Детектор, воспроизводящий эталонную разметку с опциональной симуляцией шума.
 
-    Enables testing tracking and analytics without requiring raw video or GPU.
+    Позволяет тестировать трекинг и аналитику без необходимости работы с сырым видео или GPU.
     """
 
     def __init__(
@@ -80,13 +80,13 @@ class MockBallDetector(BaseBallDetector):
         dropout_prob: float = 0.0,
         seed: int = 42,
     ) -> None:
-        """Initialize MockBallDetector.
+        """Инициализация MockBallDetector.
 
-        Args:
-            markup_path_or_dict: Path to ball_markup.json or loaded dictionary.
-            noise_std: Standard deviation of Gaussian noise added to coordinates in px.
-            dropout_prob: Probability [0.0, 1.0] of simulating missing detection.
-            seed: Random seed for reproducibility.
+        Аргументы:
+            markup_path_or_dict: Путь к ball_markup.json или загруженный словарь.
+            noise_std: Стандартное отклонение гауссовского шума, добавляемого к координатам (в пикс).
+            dropout_prob: Вероятность [0.0, 1.0] симуляции пропуска детекции.
+            seed: Зерно генератора случайных чисел для воспроизводимости.
         """
         self.noise_std = noise_std
         self.dropout_prob = dropout_prob
@@ -107,27 +107,27 @@ class MockBallDetector(BaseBallDetector):
 
         x, y = self.markup[frame_id]
         if x < 0 or y < 0:
-            return []  # Invisible in ground truth
+            return []  # Не виден в эталонной разметке
 
-        # Simulated dropout (motion blur / occlusion)
+        # Симулированный пропуск (размытие в движении / перекрытие)
         if self.dropout_prob > 0.0 and self.rng.random() < self.dropout_prob:
             return []
 
-        # Simulated detector noise
+        # Симулированный шум детектора
         if self.noise_std > 0.0:
             x = float(x + self.rng.normal(0.0, self.noise_std))
             y = float(y + self.rng.normal(0.0, self.noise_std))
 
-        # 20x20 bounding box
+        # Ограничивающая рамка 20x20
         bbox = (float(x - 10), float(y - 10), float(x + 10), float(y + 10))
         return [BallDetection(x=float(x), y=float(y), bbox=bbox, confidence=0.98)]
 
 
 class ColorMotionBallDetector(BaseBallDetector):
-    """Fast classical computer vision ball detector.
+    """Быстрый классический детектор мяча методами компьютерного зрения.
 
-    Filters by HSV color (white / orange ball) and circular contour shape.
-    Works on CPU without pretrained neural network weights.
+    Фильтрует по цвету HSV (белый / оранжевый мяч) и круглой форме контура.
+    Работает на CPU без предобученных весов нейросетей.
     """
 
     def __init__(
@@ -138,14 +138,14 @@ class ColorMotionBallDetector(BaseBallDetector):
         min_circularity: float = 0.45,
         roi_bbox: tuple[int, int, int, int] | None = None,
     ) -> None:
-        """Initialize ColorMotionBallDetector.
+        """Инициализация ColorMotionBallDetector.
 
-        Args:
-            ball_color: "white" or "orange".
-            min_radius: Minimum ball radius in pixels.
-            max_radius: Maximum ball radius in pixels.
-            min_circularity: Minimum circularity = 4*pi*area / (perimeter^2).
-            roi_bbox: Optional (x1, y1, x2, y2) to restrict search region.
+        Аргументы:
+            ball_color: "white" (белый) или "orange" (оранжевый).
+            min_radius: Минимальный радиус мяча в пикселях.
+            max_radius: Максимальный радиус мяча в пикселях.
+            min_circularity: Минимальная округлость = 4*pi*area / (perimeter^2).
+            roi_bbox: Опциональный (x1, y1, x2, y2) для ограничения области поиска (ROI).
         """
         self.ball_color = ball_color.lower()
         self.min_radius = min_radius
@@ -157,24 +157,24 @@ class ColorMotionBallDetector(BaseBallDetector):
         h, w = frame.shape[:2]
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        # Color mask
+        # Цветовая маска
         if self.ball_color == "white":
-            # Low saturation, high brightness
+            # Низкая насыщенность, высокая яркость
             mask = cv2.inRange(hsv, (0, 0, 195), (180, 70, 255))
         elif self.ball_color == "orange":
-            # Orange hue [5, 25]
+            # Оранжевый оттенок [5, 25]
             mask = cv2.inRange(hsv, (5, 100, 120), (25, 255, 255))
         else:
             raise ValueError(f"Unknown ball color: {self.ball_color}")
 
-        # Crop to ROI if specified
+        # Обрезка по области интереса (ROI), если задана
         if self.roi_bbox is not None:
             x1, y1, x2, y2 = self.roi_bbox
             roi_mask = np.zeros_like(mask)
             roi_mask[y1:y2, x1:x2] = mask[y1:y2, x1:x2]
             mask = roi_mask
 
-        # Morphological opening to reduce noise
+        # Морфологическое размыкание (opening) для подавления шума
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
 
@@ -212,7 +212,7 @@ class ColorMotionBallDetector(BaseBallDetector):
 
 
 class YOLOv8BallDetector(BaseBallDetector):
-    """Ultralytics YOLO detector wrapper for trained weights."""
+    """Обертка детектора Ultralytics YOLO для обученных весов."""
 
     def __init__(
         self,
@@ -221,13 +221,13 @@ class YOLOv8BallDetector(BaseBallDetector):
         imgsz: int = 1280,
         device: str | None = None,
     ) -> None:
-        """Initialize YOLO detector.
+        """Инициализация детектора YOLO.
 
-        Args:
-            weights_path: Path to best.pt or yolov8n.pt.
-            conf_thresh: Confidence threshold for candidate detections.
-            imgsz: Inference image size (1280 recommended for small balls).
-            device: 'cuda', 'cpu', or None for auto.
+        Аргументы:
+            weights_path: Путь к best.pt или yolov8n.pt.
+            conf_thresh: Порог уверенности для кандидатов в детекции.
+            imgsz: Размер изображения для инференса (1280 рекомендуется для маленьких мячей).
+            device: 'cuda', 'cpu' или None для автовыбора.
         """
         try:
             from ultralytics import YOLO

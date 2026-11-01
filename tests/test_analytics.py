@@ -1,4 +1,4 @@
-"""Tests for ttcv.analytics (RallyAnalyzer, RallyMetrics, ShotInfo, report formatting)."""
+"""Тесты для ttcv.analytics (RallyAnalyzer, RallyMetrics, ShotInfo, форматирование отчетов)."""
 
 from __future__ import annotations
 
@@ -31,18 +31,18 @@ def sample_homography() -> TableHomography:
 
 @pytest.fixture
 def synthetic_track_points(sample_homography: TableHomography) -> list[TrackPoint]:
-    """Create a synthetic sequence of 30 track points with one clear bounce."""
+    """Создание синтетической последовательности из 30 точек трека с одним явным отскоком."""
     points: list[TrackPoint] = []
-    # Frames 0-14: moving left-to-right and falling down (vy > 0)
-    # Frame 15: bounce on table surface (table_x_mm=800, table_y_mm=500)
-    # Frames 16-29: moving left-to-right and rising up (vy < 0)
+    # Кадры 0-14: движение слева направо и падение вниз (vy > 0)
+    # Кадр 15: отскок от поверхности стола (table_x_mm=800, table_y_mm=500)
+    # Кадры 16-29: движение слева направо и подъем вверх (vy < 0)
     for fid in range(30):
         x = 500.0 + fid * 15.0
         if fid <= 15:
-            y = 550.0 + fid * 10.0  # falling
+            y = 550.0 + fid * 10.0  # падение
             vy = 10.0
         else:
-            y = 700.0 - (fid - 15) * 8.0  # rising
+            y = 700.0 - (fid - 15) * 8.0  # подъем
             vy = -8.0
 
         pt_table = sample_homography.project_to_table(np.array([x, y]))
@@ -133,7 +133,7 @@ class TestRallyAnalyzer:
         assert shot.max_speed_kmh > 0.0
 
 
-# ── Reports ───────────────────────────────────────────────────────────────────
+# ── Отчеты (Reports) ──────────────────────────────────────────────────────────
 
 
 class TestReports:

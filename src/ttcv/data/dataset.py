@@ -1,15 +1,15 @@
-"""TTNet dataset loader.
+"""Загрузчик датасета TTNet.
 
-Reads annotation files from lab.osai.ai dataset:
-  - ball_markup.json     : {frame_id: {x, y}} — ball center in pixels
-                           (-1, -1) means the ball is not visible in that frame.
+Считывает файлы аннотаций из датасета lab.osai.ai:
+  - ball_markup.json     : {frame_id: {x, y}} — центр мяча в пикселях.
+                           (-1, -1) означает, что мяч не виден на данном кадре.
   - events_markup.json   : {frame_id: event}  — "bounce" | "net" | "empty_event"
-  - segmentation_masks/  : RGB PNG images (320×128) per annotated frame
+  - segmentation_masks/  : RGB PNG изображения (320×128) для каждого размеченного кадра.
 
-Full-resolution frames (1920×1080) are NOT required for Step 1.
-They will be used in Step 3 (ball detection / tracking).
+Полноразмерные кадры (1920×1080) НЕ требуются для Шага 1.
+Они используются на Шаге 3 (детекция и отслеживание мяча).
 
-Typical dataset layout (one game clip)::
+Типичная структура клипа::
 
     <game_root>/
         ball_markup.json
@@ -28,38 +28,38 @@ from typing import Iterator
 
 import numpy as np
 
-# ── Constants ────────────────────────────────────────────────────────────────
+# ── Константы ────────────────────────────────────────────────────────────────
 
-#: Standard table tennis table dimensions in millimetres (ITF rules).
-TABLE_WIDTH_MM: int = 1525   # across the net
-TABLE_LENGTH_MM: int = 2740  # along the net
+#: Стандартные размеры теннисного стола в миллиметрах (правила ITTF).
+TABLE_WIDTH_MM: int = 1525   # ширина поперек сетки
+TABLE_LENGTH_MM: int = 2740  # длина вдоль стола
 
-#: Full-HD frame resolution used by the TTNet dataset cameras.
+#: Full-HD разрешение кадров камер в датасете TTNet.
 FRAME_WIDTH: int = 1920
 FRAME_HEIGHT: int = 1080
 
-#: Resolution of the segmentation mask images.
+#: Разрешение изображений масок сегментации.
 MASK_WIDTH: int = 320
 MASK_HEIGHT: int = 128
 
-#: Event label constants.
+#: Константы меток событий.
 EVENT_BOUNCE = "bounce"
 EVENT_NET = "net"
 EVENT_EMPTY = "empty_event"
 ALL_EVENTS = frozenset({EVENT_BOUNCE, EVENT_NET, EVENT_EMPTY})
 
-# ── Data structures ───────────────────────────────────────────────────────────
+# ── Структуры данных ──────────────────────────────────────────────────────────
 
 
 @dataclass
 class BallPosition:
-    """Ball position for a single frame.
+    """Положение мяча на отдельном кадре.
 
-    Attributes:
-        frame_id: Frame index (0-based integer from the dataset).
-        x:        Horizontal pixel coordinate (in FRAME_WIDTH × FRAME_HEIGHT space).
-                  -1 means the ball is not visible (occluded / out of frame).
-        y:        Vertical pixel coordinate. -1 means not visible.
+    Атрибуты:
+        frame_id: Индекс кадра (целое число от 0 из датасета).
+        x:        Горизонтальная координата пикселя (в пространстве FRAME_WIDTH × FRAME_HEIGHT).
+                  -1 означает, что мяч не виден (перекрыт / за пределами кадра).
+        y:        Вертикальная координата пикселя. -1 означает, что не виден.
     """
 
     frame_id: int
@@ -68,26 +68,26 @@ class BallPosition:
 
     @property
     def visible(self) -> bool:
-        """Return True when the ball is visible (coordinates ≥ 0)."""
+        """Возвращает True, если мяч виден (координаты >= 0)."""
         return self.x >= 0 and self.y >= 0
 
     @property
     def xy(self) -> tuple[int, int]:
-        """Return (x, y) tuple."""
+        """Возвращает кортеж (x, y)."""
         return (self.x, self.y)
 
     def as_array(self) -> np.ndarray:
-        """Return ball position as a float32 NumPy array [x, y]."""
+        """Возвращает положение мяча как массив NumPy float32 [x, y]."""
         return np.array([self.x, self.y], dtype=np.float32)
 
 
 @dataclass
 class EventAnnotation:
-    """Game event annotation for a single frame.
+    """Аннотация игрового события для отдельного кадра.
 
-    Attributes:
-        frame_id: Frame index.
-        event:    One of "bounce", "net", or "empty_event".
+    Атрибуты:
+        frame_id: Индекс кадра.
+        event:    Одно из значений: "bounce", "net" или "empty_event".
     """
 
     frame_id: int
@@ -108,13 +108,13 @@ class EventAnnotation:
 
 @dataclass
 class FrameAnnotation:
-    """Combined annotation for a single frame (ball position + optional event).
+    """Объединенная аннотация кадра (положение мяча + опциональное событие).
 
-    Attributes:
-        frame_id:    Frame index.
-        ball:        Ball position (may indicate invisible ball).
-        event:       Event annotation if this frame is annotated; else None.
-        mask_path:   Path to the segmentation mask PNG, if it exists.
+    Атрибуты:
+        frame_id:    Индекс кадра.
+        ball:        Положение мяча (может указывать на невидимый мяч).
+        event:       Аннотация события (если кадр содержит событие; иначе None).
+        mask_path:   Путь к PNG-файлу маски сегментации, если он существует.
     """
 
     frame_id: int
@@ -137,13 +137,13 @@ class FrameAnnotation:
 
 @dataclass
 class GameClip:
-    """In-memory representation of one game clip annotation.
+    """Представление аннотаций одного игрового клипа в оперативной памяти.
 
-    Attributes:
-        root:          Root directory of the clip.
-        ball_data:     Mapping from frame_id → BallPosition.
-        event_data:    Mapping from frame_id → EventAnnotation.
-        mask_dir:      Directory containing segmentation mask images.
+    Атрибуты:
+        root:          Корневая директория клипа.
+        ball_data:     Отображение frame_id → BallPosition.
+        event_data:    Отображение frame_id → EventAnnotation.
+        mask_dir:      Директория с изображениями масок сегментации.
     """
 
     root: Path
@@ -151,11 +151,11 @@ class GameClip:
     event_data: dict[int, EventAnnotation] = field(default_factory=dict)
     mask_dir: Path | None = None
 
-    # ── Properties ────────────────────────────────────────────────────────────
+    # ── Свойства ──────────────────────────────────────────────────────────────
 
     @property
     def frame_ids(self) -> list[int]:
-        """Sorted list of all frame IDs that have at least one annotation."""
+        """Отсортированный список всех ID кадров, имеющих хотя бы одну аннотацию."""
         return sorted(set(self.ball_data) | set(self.event_data))
 
     @property
@@ -164,34 +164,34 @@ class GameClip:
 
     @property
     def bounce_frames(self) -> list[int]:
-        """Sorted frame IDs where a bounce was annotated."""
+        """Отсортированные ID кадров, где зафиксирован отскок (bounce)."""
         return sorted(fid for fid, ev in self.event_data.items() if ev.is_bounce)
 
     @property
     def net_frames(self) -> list[int]:
-        """Sorted frame IDs where a net touch was annotated."""
+        """Отсортированные ID кадров, где зафиксировано касание сетки (net)."""
         return sorted(fid for fid, ev in self.event_data.items() if ev.is_net)
 
     @property
     def visible_ball_positions(self) -> list[BallPosition]:
-        """All BallPosition instances where the ball is visible."""
+        """Все экземпляры BallPosition, на которых мяч виден."""
         return [bp for bp in self.ball_data.values() if bp.visible]
 
     @property
     def trajectory_array(self) -> np.ndarray:
-        """Shape (N, 3) array of [frame_id, x, y] for visible ball frames.
+        """Массив формы (N, 3) вида [frame_id, x, y] для кадров с видимым мячом.
 
-        Rows are sorted by frame_id.
+        Строки отсортированы по frame_id.
         """
         positions = sorted(self.visible_ball_positions, key=lambda bp: bp.frame_id)
         if not positions:
             return np.empty((0, 3), dtype=np.float32)
         return np.array([[p.frame_id, p.x, p.y] for p in positions], dtype=np.float32)
 
-    # ── Frame-level access ────────────────────────────────────────────────────
+    # ── Доступ на уровне кадров ───────────────────────────────────────────────
 
     def get_frame(self, frame_id: int) -> FrameAnnotation:
-        """Return a combined FrameAnnotation for the given frame ID."""
+        """Возвращает объединенный FrameAnnotation для указанного кадра."""
         mask_path: Path | None = None
         if self.mask_dir is not None:
             candidate = self.mask_dir / f"{frame_id}.png"
@@ -205,14 +205,14 @@ class GameClip:
         )
 
     def iter_frames(self) -> Iterator[FrameAnnotation]:
-        """Iterate over all annotated frames in order."""
+        """Итератор по всем размеченным кадрам по порядку."""
         for fid in self.frame_ids:
             yield self.get_frame(fid)
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # ── Сводка ────────────────────────────────────────────────────────────────
 
     def summary(self) -> dict:
-        """Return a concise statistics dictionary."""
+        """Возвращает краткий словарь со статистикой клипа."""
         event_counts: dict[str, int] = {EVENT_BOUNCE: 0, EVENT_NET: 0, EVENT_EMPTY: 0}
         for ev in self.event_data.values():
             event_counts[ev.event] = event_counts.get(ev.event, 0) + 1
@@ -241,24 +241,24 @@ class GameClip:
         }
 
 
-# ── Loader ────────────────────────────────────────────────────────────────────
+# ── Загрузчик ─────────────────────────────────────────────────────────────────
 
 
 def load_game_clip(root: str | Path) -> GameClip:
-    """Load all annotation files from a single game clip directory.
+    """Загрузка всех файлов аннотаций из директории одного игрового клипа.
 
-    Args:
-        root: Path to the clip directory containing:
+    Аргументы:
+        root: Путь к директории клипа, содержащей:
               - ``ball_markup.json``
               - ``events_markup.json``
-              - ``segmentation_masks/`` (optional)
+              - ``segmentation_masks/`` (опционально)
 
-    Returns:
-        A :class:`GameClip` instance with all annotations loaded into memory.
+    Возвращает:
+        Экземпляр :class:`GameClip` со всеми загруженными в память аннотациями.
 
-    Raises:
-        FileNotFoundError: If neither ball_markup.json nor events_markup.json
-                           exists in *root*.
+    Исключения:
+        FileNotFoundError: Если ни ball_markup.json, ни events_markup.json
+                           не найдены в *root*.
     """
     root = Path(root)
     ball_path = root / "ball_markup.json"
@@ -271,7 +271,7 @@ def load_game_clip(root: str | Path) -> GameClip:
             "Expected ball_markup.json and/or events_markup.json."
         )
 
-    # ── Load ball positions ────────────────────────────────────────────────
+    # ── Загрузка положений мяча ────────────────────────────────────────────
     ball_data: dict[int, BallPosition] = {}
     if ball_path.exists():
         raw: dict[str, dict] = json.loads(ball_path.read_text(encoding="utf-8"))
@@ -279,7 +279,7 @@ def load_game_clip(root: str | Path) -> GameClip:
             fid = int(fid_str)
             ball_data[fid] = BallPosition(frame_id=fid, x=int(pos["x"]), y=int(pos["y"]))
 
-    # ── Load events ────────────────────────────────────────────────────────
+    # ── Загрузка событий ───────────────────────────────────────────────────
     event_data: dict[int, EventAnnotation] = {}
     if events_path.exists():
         raw_events: dict[str, str] = json.loads(events_path.read_text(encoding="utf-8"))
@@ -296,21 +296,21 @@ def load_game_clip(root: str | Path) -> GameClip:
 
 
 def load_dataset(data_root: str | Path) -> list[GameClip]:
-    """Load all game clips found under *data_root*.
+    """Загрузка всех игровых клипов, найденных в каталоге *data_root*.
 
-    Recursively searches *data_root* for directories that contain
-    ``ball_markup.json`` or ``events_markup.json``.
+    Рекурсивно сканирует *data_root* на наличие папок, содержащих
+    ``ball_markup.json`` или ``events_markup.json``.
 
-    Args:
-        data_root: Root of the dataset (e.g. ``data/raw``).
+    Аргументы:
+        data_root: Корневой каталог датасета (например, ``data/raw``).
 
-    Returns:
-        List of :class:`GameClip` instances, one per discovered clip directory.
+    Возвращает:
+        Список экземпляров :class:`GameClip` для каждой обнаруженной папки клипа.
     """
     data_root = Path(data_root)
     clips: list[GameClip] = []
 
-    # A clip directory is one that directly contains ball_markup.json or events_markup.json.
+    # Папка клипа — это папка, непосредственно содержащая ball_markup.json или events_markup.json.
     candidate_dirs: set[Path] = set()
     for marker in ("ball_markup.json", "events_markup.json"):
         for p in data_root.rglob(marker):
@@ -320,6 +320,6 @@ def load_dataset(data_root: str | Path) -> list[GameClip]:
         try:
             clips.append(load_game_clip(clip_dir))
         except FileNotFoundError:
-            pass  # Should not happen given the discovery logic above
+            pass  # Не должно происходить при логике поиска выше
 
     return clips

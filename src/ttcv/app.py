@@ -1,6 +1,6 @@
-"""PingPongVision — Streamlit Web Dashboard for Table Tennis CV Analytics.
+"""PingPongVision — Веб-дашборд на Streamlit для компьютерного зрения и аналитики в настольном теннисе.
 
-Launch with:
+Запуск:
     streamlit run app.py
 """
 
@@ -10,7 +10,7 @@ import io
 import sys
 from pathlib import Path
 
-# Add src to pythonpath
+# Добавление каталога src в pythonpath
 src_dir = Path(__file__).parent.parent
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
@@ -31,7 +31,7 @@ from ttcv.tracking import (
     generate_synthetic_rally,
 )
 
-# ── Page Configuration ────────────────────────────────────────────────────────
+# ── Настройка страницы ────────────────────────────────────────────────────────
 
 st.set_page_config(
     page_title="PingPongVision 🏓",
@@ -40,35 +40,35 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.title("🏓 PingPongVision: Ball Tracking & Court Analytics")
+st.title("🏓 PingPongVision: трекинг мяча и аналитика стола")
 st.markdown(
-    "**Computer Vision Analytics for Table Tennis**: Multi-frame Ball Tracking, "
-    "Bird's Eye View Homography, Bounce Heatmaps, Speed Estimation & Rally Metrics."
+    "**Компьютерное зрение в настольном теннисе**: покадровое отслеживание мяча, "
+    "гомография вида сверху (BEV), тепловые карты отскоков, оценка скорости и метрики розыгрышей."
 )
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Боковая панель ────────────────────────────────────────────────────────────
 
-st.sidebar.header("⚙️ Configuration")
+st.sidebar.header("⚙️ Параметры")
 mode = st.sidebar.selectbox(
-    "Data Source Mode",
+    "Режим источника данных",
     [
-        "Demo: Real TTNet Dataset (7,073 frames)",
-        "Demo: Synthetic Rally Simulation",
-        "Upload Custom Video (MP4/AVI)",
+        "Демо: Реальный датасет TTNet (7 073 кадра)",
+        "Демо: Симуляция синтетического розыгрыша",
+        "Загрузить свое видео (MP4/AVI)",
     ],
 )
 
 default_mask = Path("data/raw/segmentation_masks/1278.png")
 mask_path = st.sidebar.text_input(
-    "Segmentation Mask Path",
+    "Путь к маске сегментации",
     value=str(default_mask) if default_mask.exists() else "",
-    help="Path to segmentation mask for table corner calibration.",
+    help="Путь к маске сегментации для калибровки углов стола.",
 )
 
-fps = st.sidebar.slider("Camera FPS", min_value=30, max_value=240, value=120, step=30)
-max_frames = st.sidebar.slider("Max Frames to Process", min_value=50, max_value=1000, value=250, step=50)
+fps = st.sidebar.slider("Частота кадров камеры (FPS)", min_value=30, max_value=240, value=120, step=30)
+max_frames = st.sidebar.slider("Максимум кадров для обработки", min_value=50, max_value=1000, value=250, step=50)
 
-# Load Homography
+# Загрузка матрицы гомографии
 if mask_path and Path(mask_path).exists():
     homography = TableHomography.from_mask(mask_path)
 else:
@@ -76,7 +76,7 @@ else:
     homography = TableHomography(corners)
 
 
-# ── Process Data ──────────────────────────────────────────────────────────────
+# ── Обработка данных ──────────────────────────────────────────────────────────
 
 @st.cache_data
 def process_real_dataset(start_frame: int, length: int, _fps: float):
@@ -89,7 +89,7 @@ def process_real_dataset(start_frame: int, length: int, _fps: float):
         xy = (float(bp.x), float(bp.y)) if (bp and bp.visible) else None
         tracker.update(frame_id=fid, detection_xy=xy)
 
-    # Known bounces in range
+    # Известные отскоки в диапазоне
     known_bounces = [f for f in clip.bounce_frames if start_frame <= f < start_frame + length]
     analyzer = RallyAnalyzer(homography=homography, fps=_fps)
     metrics = analyzer.analyze_trajectory(tracker.history, annotated_bounce_frames=known_bounces)
@@ -118,61 +118,61 @@ def process_synthetic_rally(num_frames: int, _fps: float):
     return str(tmp_vid), tracker.history, metrics, bounces
 
 
-# ── Main Flow ─────────────────────────────────────────────────────────────────
+# ── Основной поток выполнения ─────────────────────────────────────────────────
 
-if "Real TTNet" in mode:
-    st.info("📊 Loaded **TTNet Academic Dataset** (`data/raw`). Tracking ball trajectory and table bounces.")
-    start_frame = st.sidebar.number_input("Start Frame ID", value=1298, min_value=1278, max_value=60000, step=10)
-    with st.spinner("Analyzing rally trajectory..."):
+if "Реальный датасет" in mode or "Real TTNet" in mode:
+    st.info("📊 Загружен **академический датасет TTNet** (`data/raw`). Отслеживание траектории мяча и отскоков от стола.")
+    start_frame = st.sidebar.number_input("Начальный кадр (ID)", value=1298, min_value=1278, max_value=60000, step=10)
+    with st.spinner("Анализ траектории розыгрыша..."):
         history, metrics, bounces = process_real_dataset(start_frame, max_frames, float(fps))
         video_path = None
 
-elif "Synthetic" in mode:
-    st.info("🎾 Running **Physics-based Synthetic Rally Simulation** with projectile dynamics and table collisions.")
-    with st.spinner("Simulating ball flight and tracking..."):
+elif "Симуляция" in mode or "Synthetic" in mode:
+    st.info("🎾 Запуск **физической симуляции розыгрыша** с баллистикой полета и столкновениями со столом.")
+    with st.spinner("Симуляция полета мяча и отслеживание..."):
         video_path, history, metrics, bounces = process_synthetic_rally(max_frames, float(fps))
 
 else:
-    uploaded_file = st.sidebar.file_uploader("Upload MP4 / AVI", type=["mp4", "avi"])
+    uploaded_file = st.sidebar.file_uploader("Загрузите MP4 / AVI", type=["mp4", "avi"])
     if uploaded_file is None:
-        st.warning("Please upload a video file to run tracking.")
+        st.warning("Пожалуйста, загрузите видеофайл для запуска трекинга.")
         st.stop()
     else:
-        st.success(f"Uploaded: {uploaded_file.name}")
-        st.info("Processing custom video...")
-        # Fallback to synthetic demonstration for custom upload placeholder
+        st.success(f"Загружено: {uploaded_file.name}")
+        st.info("Обработка пользовательского видео...")
+        # Запасной вариант на синтетическую демонстрацию
         video_path, history, metrics, bounces = process_synthetic_rally(max_frames, float(fps))
 
 
-# ── Metric KPI Cards ──────────────────────────────────────────────────────────
+# ── Карточки ключевых метрик (KPI) ───────────────────────────────────────────
 
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("⏱️ Duration", f"{metrics.duration_sec:.1f} s", f"{metrics.total_frames} frames")
-col2.metric("🎯 Total Bounces", f"{metrics.total_bounces}", f"A: {metrics.bounces_player_a} | B: {metrics.bounces_player_b}")
-col3.metric("⚡ Peak Speed", f"{metrics.max_speed_kmh:.1f} km/h")
-col4.metric("💨 Avg Speed", f"{metrics.mean_speed_kmh:.1f} km/h")
-col5.metric("🔄 Kalman Fill", f"{metrics.interpolation_rate:.1f}%", "reconstructed")
+col1.metric("⏱️ Длительность", f"{metrics.duration_sec:.1f} с", f"{metrics.total_frames} кадров")
+col2.metric("🎯 Всего отскоков", f"{metrics.total_bounces}", f"A: {metrics.bounces_player_a} | B: {metrics.bounces_player_b}")
+col3.metric("⚡ Макс. скорость", f"{metrics.max_speed_kmh:.1f} км/ч")
+col4.metric("💨 Средняя скорость", f"{metrics.mean_speed_kmh:.1f} км/ч")
+col5.metric("🔄 Заполнение Калманом", f"{metrics.interpolation_rate:.1f}%", "восстановлено")
 
 st.markdown("---")
 
 
-# ── Tabs ──────────────────────────────────────────────────────────────────────
+# ── Вкладки ───────────────────────────────────────────────────────────────────
 
 tab_court, tab_physics, tab_video, tab_report = st.tabs([
-    "🏓 Court Analytics & Heatmap",
-    "📈 Velocity & Physics Profile",
-    "🎥 Video & Live Tracking",
-    "📋 Match Report & Insights",
+    "🏓 Аналитика стола и тепловая карта",
+    "📈 Профиль скорости и физика",
+    "🎥 Видео и трекинг",
+    "📋 Отчет о матче",
 ])
 
-# ── Tab 1: Court Analytics ───────────────────────────────────────────────────
+# ── Вкладка 1: Аналитика стола ────────────────────────────────────────────────
 
 with tab_court:
     col_left, col_right = st.columns([1.4, 1.0])
 
     with col_left:
-        st.subheader("Bird's Eye View Bounce Heatmap (2D Court)")
-        # Project bounces to camera px for heatmap
+        st.subheader("Тепловая карта отскоков (вид сверху 2D)")
+        # Проекция отскоков в пиксели камеры для тепловой карты
         bounce_pts_cam: list[list[float]] = []
         pt_map = {p.frame_id: p for p in history}
         for b_fid in bounces:
@@ -184,52 +184,52 @@ with tab_court:
             fig_heat = plot_bev_heatmap(
                 homography,
                 np.array(bounce_pts_cam, dtype=np.float32),
-                title="Table Bounces Heatmap (Top-Down 2D Projection)",
+                title="Тепловая карта отскоков от стола (2D-проекция сверху)",
             )
             st.pyplot(fig_heat)
             plt.close(fig_heat)
         else:
-            st.write("No bounces in the selected frame range.")
+            st.write("В выбранном диапазоне кадров отскоков не обнаружено.")
 
     with col_right:
-        st.subheader("Spatial Zone Distribution")
+        st.subheader("Пространственное распределение по зонам")
 
-        # Player breakdown
-        st.markdown("**Side Breakdown:**")
+        # Распределение по игрокам
+        st.markdown("**Распределение по сторонам стола:**")
         side_df = pd.DataFrame({
-            "Side": ["Player A", "Player B"],
-            "Bounces": [metrics.bounces_player_a, metrics.bounces_player_b],
+            "Сторона": ["Игрок A", "Игрок B"],
+            "Отскоки": [metrics.bounces_player_a, metrics.bounces_player_b],
         })
-        st.bar_chart(side_df.set_index("Side"))
+        st.bar_chart(side_df.set_index("Сторона"))
 
-        # Depth breakdown
-        st.markdown("**Depth Zones (Short vs Deep):**")
-        depth_df = pd.DataFrame(list(metrics.depth_distribution.items()), columns=["Zone", "Count"])
+        # Распределение по глубине
+        st.markdown("**Зоны глубины (короткие против глубоких):**")
+        depth_df = pd.DataFrame(list(metrics.depth_distribution.items()), columns=["Зона", "Количество"])
         st.dataframe(depth_df, hide_index=True, use_container_width=True)
 
 
-# ── Tab 2: Physics Profile ───────────────────────────────────────────────────
+# ── Вкладка 2: Физический профиль ─────────────────────────────────────────────
 
 with tab_physics:
     col_v1, col_v2 = st.columns(2)
 
     with col_v1:
-        st.subheader("Ball Speed Profile (km/h)")
+        st.subheader("График скорости мяча (км/ч)")
         if metrics.speed_series:
-            speed_df = pd.DataFrame(metrics.speed_series, columns=["Time (s)", "Speed (km/h)"]).set_index("Time (s)")
+            speed_df = pd.DataFrame(metrics.speed_series, columns=["Время (с)", "Скорость (км/ч)"]).set_index("Время (с)")
             st.line_chart(speed_df)
         else:
-            st.info("Insufficient trajectory points for continuous speed profile.")
+            st.info("Недостаточно точек траектории для построения непрерывного графика скорости.")
 
     with col_v2:
-        st.subheader("Vertical Trajectory Curve (Y-axis)")
+        st.subheader("Вертикальная траектория (ось Y)")
         y_series = [(round((p.frame_id - history[0].frame_id) / fps, 3), p.y) for p in history]
-        y_df = pd.DataFrame(y_series, columns=["Time (s)", "Y Position (px)"]).set_index("Time (s)")
+        y_df = pd.DataFrame(y_series, columns=["Время (с)", "Позиция Y (px)"]).set_index("Время (с)")
         st.line_chart(y_df)
-        st.caption("Local peaks in Y position indicate physical bounces on the table.")
+        st.caption("Локальные пики по оси Y соответствуют физическим отскокам от стола.")
 
-    # 2D Trajectory plot
-    st.subheader("Projected Trajectory on Court Surface (BEV)")
+    # 2D график траектории
+    st.subheader("Спроецированная траектория на поверхность стола (BEV)")
     traj_arr = np.array([[p.frame_id, p.x, p.y] for p in history], dtype=np.float32)
     fig_traj = plot_bev_trajectories(
         homography,
@@ -240,40 +240,40 @@ with tab_physics:
     plt.close(fig_traj)
 
 
-# ── Tab 3: Video Tracking ────────────────────────────────────────────────────
+# ── Вкладка 3: Видеотрекинг ───────────────────────────────────────────────────
 
 with tab_video:
-    st.subheader("Video Tracking Demonstration")
+    st.subheader("Демонстрация отслеживания на видео")
     if video_path and Path(video_path).exists():
         st.video(video_path)
     else:
         sample_tracked_mp4 = Path("outputs/tracking/synthetic_tracked.mp4")
         if sample_tracked_mp4.exists():
             st.video(str(sample_tracked_mp4))
-            st.caption("Demonstrating real-time tracking with comet tail and top-right 2D mini-map.")
+            st.caption("Демонстрация отслеживания в реальном времени с кометным шлейфом и 2D мини-картой в правом верхнем углу.")
         else:
-            st.info("Generate or upload a video using the CLI: `python scripts/infer.py --synthetic`")
+            st.info("Сгенерируйте или загрузите видео с помощью CLI: `python scripts/infer.py --synthetic`")
 
 
-# ── Tab 4: Match Report ──────────────────────────────────────────────────────
+# ── Вкладка 4: Отчет о матче ──────────────────────────────────────────────────
 
 with tab_report:
-    st.subheader("Executive Match & Rally Report")
+    st.subheader("Итоговый отчет о матче и розыгрыше")
     md_report = format_markdown_report(metrics)
     st.markdown(md_report)
 
-    # Download buttons
+    # Кнопки скачивания
     col_d1, col_d2 = st.columns(2)
     with col_d1:
         st.download_button(
-            label="📥 Download Markdown Report",
+            label="📥 Скачать отчет в Markdown",
             data=md_report,
             file_name="pingpong_match_report.md",
             mime="text/markdown",
         )
     with col_d2:
         st.download_button(
-            label="📥 Download JSON Summary",
+            label="📥 Скачать сводку в JSON",
             data=pd.Series(metrics.summary_dict()).to_json(indent=2),
             file_name="pingpong_metrics.json",
             mime="application/json",

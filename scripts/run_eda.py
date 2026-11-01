@@ -1,13 +1,13 @@
-"""Step 1 EDA script — run from the project root.
+"""Скрипт EDA для Шага 1 — запускается из корня проекта.
 
-Usage::
+Использование::
 
     python scripts/run_eda.py [DATA_ROOT] [--output-dir OUTPUT_DIR]
 
-Default DATA_ROOT is ``data/raw``.
-Plots are saved to OUTPUT_DIR (default: ``outputs/eda``).
+По умолчанию DATA_ROOT равен ``data/raw``.
+Графики сохраняются в OUTPUT_DIR (по умолчанию: ``outputs/eda``).
 
-Example::
+Пример::
 
     python scripts/run_eda.py data/raw --output-dir outputs/eda
 """
@@ -18,11 +18,11 @@ import argparse
 import sys
 from pathlib import Path
 
-# Allow running from the project root without installing the package.
+# Разрешаем запуск из корня проекта без установки пакета
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend for headless execution
+matplotlib.use("Agg")  # Неинтерактивный бэкенд для фонового выполнения
 
 import matplotlib.pyplot as plt
 
@@ -38,17 +38,17 @@ from ttcv.data.eda import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run EDA on the TTNet dataset.")
+    parser = argparse.ArgumentParser(description="Запуск EDA по датасету TTNet.")
     parser.add_argument(
         "data_root",
         nargs="?",
         default="data/raw",
-        help="Root directory of the dataset (default: data/raw)",
+        help="Корневая директория датасета (по умолчанию: data/raw)",
     )
     parser.add_argument(
         "--output-dir",
         default="outputs/eda",
-        help="Directory to save EDA plots (default: outputs/eda)",
+        help="Директория для сохранения графиков EDA (по умолчанию: outputs/eda)",
     )
     return parser.parse_args()
 
@@ -59,57 +59,57 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading dataset from: {data_root.resolve()}")
+    print(f"Загрузка датасета из: {data_root.resolve()}")
     clips = load_dataset(data_root)
 
     if not clips:
-        print(f"[ERROR] No game clips found under '{data_root}'. Check the path.")
+        print(f"[ERROR] В каталоге '{data_root}' не найдено клипов. Проверьте путь.")
         sys.exit(1)
 
-    print(f"Found {len(clips)} clip(s).\n")
+    print(f"Обнаружено клипов: {len(clips)}.\n")
 
     for i, clip in enumerate(clips):
         tag = f"clip_{i:02d}"
         print_summary(clip)
 
-        # ── Trajectory ──────────────────────────────────────────────────────
+        # ── Траектория ──────────────────────────────────────────────────────
         fig = plot_trajectory(clip, title=f"Ball Trajectory — {tag}")
         path = output_dir / f"{tag}_trajectory.png"
         fig.savefig(path, dpi=120, bbox_inches="tight")
         plt.close(fig)
-        print(f"  Saved: {path}")
+        print(f"  Сохранено: {path}")
 
-        # ── Event distribution ───────────────────────────────────────────────
+        # ── Распределение событий ───────────────────────────────────────────
         fig = plot_event_distribution(clip, title=f"Event Distribution — {tag}")
         path = output_dir / f"{tag}_events.png"
         fig.savefig(path, dpi=120, bbox_inches="tight")
         plt.close(fig)
-        print(f"  Saved: {path}")
+        print(f"  Сохранено: {path}")
 
-        # ── Visibility timeline ──────────────────────────────────────────────
+        # ── Временная шкала видимости ───────────────────────────────────────
         fig = plot_visibility(clip, title=f"Ball Visibility — {tag}")
         path = output_dir / f"{tag}_visibility.png"
         fig.savefig(path, dpi=120, bbox_inches="tight")
         plt.close(fig)
-        print(f"  Saved: {path}")
+        print(f"  Сохранено: {path}")
 
-        # ── Ball position heatmap ────────────────────────────────────────────
+        # ── Тепловая карта положений мяча ───────────────────────────────────
         fig = plot_ball_heatmap(clip, title=f"Ball Heatmap — {tag}")
         path = output_dir / f"{tag}_heatmap.png"
         fig.savefig(path, dpi=120, bbox_inches="tight")
         plt.close(fig)
-        print(f"  Saved: {path}")
+        print(f"  Сохранено: {path}")
 
-        # ── Invisibility gap distribution ────────────────────────────────────
+        # ── Распределение длительности пропусков видимости ──────────────────
         fig = plot_gap_distribution(clip, title=f"Invisibility Gaps — {tag}")
         path = output_dir / f"{tag}_gaps.png"
         fig.savefig(path, dpi=120, bbox_inches="tight")
         plt.close(fig)
-        print(f"  Saved: {path}")
+        print(f"  Сохранено: {path}")
 
         print()
 
-    print(f"EDA complete. All plots saved to: {output_dir.resolve()}")
+    print(f"EDA успешно завершен. Все графики сохранены в: {output_dir.resolve()}")
 
 
 if __name__ == "__main__":
